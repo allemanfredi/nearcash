@@ -172,6 +172,10 @@ impl IssuerContract {
     ///
     /// The certificate covers the card's own keys, so the signature is valid
     /// for that one chip only. Call it only after the card has been funded.
+    ///
+    /// TODO: Once FAR supports contract deployment and MPC is available on FAR,
+    /// deploy issuance there to make it straightforward to verify the card's
+    /// backing directly before signing, instead of trusting the issuance server.
     pub fn sign_certificate(
         &mut self,
         auth_public_key: String,

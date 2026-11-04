@@ -269,6 +269,9 @@ A card taken before step 5 is worthless: wallets reject `EMPTY` and
   before asking for its certificate (the contract cannot see FAR). The contract
   limits a compromised issuance server: allowed denominations only, a daily value cap,
   public counters, immediate revocation. ATMs hold no keys and cannot create value.
+  **TODO:** Once FAR supports contract deployment and MPC is available on FAR,
+  deploy issuance there to make it straightforward to verify the card's backing
+  directly before signing, instead of trusting the issuance server.
 - The FAR operator can technically freeze accounts; NearCash never needs to.
   Recommended: the freeze role on a time-locked multisig (own FAR instance).
 
