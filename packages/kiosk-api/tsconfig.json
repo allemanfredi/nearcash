@@ -1,0 +1,9 @@
+{
+  // Shared by a browser page (Vite) and a Node server (imported as TypeScript
+  // source, type-stripped by Node): erasable syntax only, as in packages/core.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

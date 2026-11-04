@@ -1,0 +1,6 @@
+# pnpm workspace: TypeScript packages and apps.
+# The Java Card applet (applet/, Gradle), the issuer contract (contracts/,
+# Cargo) and the iOS app (ios/, Xcode) live outside the pnpm workspace on purpose.
+packages:
+  - "packages/*"
+  - "apps/*"

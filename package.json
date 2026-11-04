@@ -1,0 +1,29 @@
+{
+  "name": "nearcash",
+  "private": true,
+  "description": "NearCash — digital bearer cash on NFC Java Cards backed by NEAR Intents (FAR).",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "applet:test": "cd applet && ./gradlew test",
+    "ios:generate": "cd ios && xcodegen generate",
+    "issuer:admin": "pnpm --filter @nearcash/core exec node scripts/issuer-admin.ts",
+    "test:mpc-live": "set -a; . ./.env.issuance; set +a; pnpm --filter @nearcash/core exec vitest run test/mpc.live.test.ts",
+    "issuance:start": "pnpm --filter @nearcash/issuance start",
+    "issuance:build": "pnpm --filter @nearcash/issuance build",
+    "issuance:check": "pnpm --filter @nearcash/issuance check",
+    "atm:start": "pnpm --filter @nearcash/atm start",
+    "atm:build": "pnpm --filter @nearcash/atm build",
+    "atm:demo": "bash scripts/atm-demo.sh",
+    "kiosk:dev": "pnpm --filter @nearcash/kiosk dev",
+    "kiosk:build": "pnpm --filter @nearcash/kiosk build",
+    "kiosk:preview": "pnpm --filter @nearcash/kiosk preview",
+    "website:dev": "pnpm --filter @nearcash/website dev",
+    "website:build": "pnpm --filter @nearcash/website build",
+    "website:preview": "pnpm --filter @nearcash/website preview"
+  }
+}

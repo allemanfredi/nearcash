@@ -1,0 +1,35 @@
+{
+  "name": "@nearcash/issuance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NearCash issuance server: the only place where banknotes get their value. Sells blank cards through ATMs: makes the payment quote, checks the payment itself, funds the card inside FAR, has the NEAR MPC network certify it, and sends refunds that reach the reserve back to whoever paid. NestJS, feature-based modular monolith.",
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist && swc src -d dist --strip-leading-paths --quiet",
+    "start": "pnpm build && node dist/main.js",
+    "check": "pnpm build && node dist/check.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@defuse-protocol/intents-sdk": "0.94.0",
+    "@nearcash/core": "workspace:*",
+    "@nestjs/common": "12.2.0",
+    "@nestjs/core": "12.2.0",
+    "@nestjs/platform-express": "12.2.0",
+    "near-api-js": "5.1.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "12.2.0",
+    "@noble/curves": "2.4.0",
+    "@swc/cli": "0.8.1",
+    "@swc/core": "1.16.18",
+    "@types/express": "5.0.6",
+    "@types/node": "^22.18.0",
+    "typescript": "7.0.2",
+    "unplugin-swc": "2.0.0",
+    "vitest": "5.0.5"
+  }
+}

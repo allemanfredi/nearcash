@@ -1,0 +1,2024 @@
+/* =============================================================================
+   NearCash website styles.
+
+   Design: paper and ink, one accent (NearCash green, #00EC97),
+   a serif for headlines, Inter for text, a mono for protocol details.
+   Every colour is a token; dark mode and the dark "ink" sections only
+   redefine tokens, so components never need to know where they are.
+   ========================================================================== */
+
+/* ----------------------------------------------------------------- tokens -- */
+
+:root {
+  color-scheme: light dark;
+
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Surfaces and text. */
+  --bg: #f5f2ea;
+  --surface: #fbfaf6;
+  --surface-2: #ece7db;
+  --ink: #0f1d18;
+  --ink-2: #3d4b45;
+  --ink-3: #66746e;
+  --line: rgb(15 29 24 / 0.12);
+  --line-strong: rgb(15 29 24 / 0.22);
+
+  /* NearCash green. --accent is the fill (buttons, checks, the banknote),
+     always #00EC97, with --accent-ink text on top. #00EC97 is too light to
+     read as text on paper (contrast ≈ 1.6:1), so green text on light
+     backgrounds uses --accent-text: the same hue at half brightness
+     (≈ 5:1, WCAG AA). On dark backgrounds --accent-text is #00EC97 itself. */
+  --green: #00ec97;
+  --accent: var(--green);
+  --accent-ink: #032619;
+  --accent-text: #00764c;
+  --accent-soft: rgb(0 236 151 / 0.16);
+  /* Headline highlights: dark text on a #00EC97 marker stroke. */
+  --title-em-color: var(--ink);
+  --title-em-mark: var(--green);
+  --danger: #b33329;
+  --danger-soft: rgb(179 51 41 / 0.1);
+  --warn: #9a5b00;
+  --warn-soft: rgb(154 91 0 / 0.1);
+
+  /* The banknote itself looks the same in every theme: NearCash green. */
+  --note-light: #00ec97;
+  --note-dark: #00c47e;
+  --note-ink: #032619;
+
+  --radius: 18px;
+  --radius-small: 12px;
+  --shadow: 0 1px 2px rgb(15 29 24 / 0.06), 0 12px 32px -12px rgb(15 29 24 / 0.18);
+  --gutter: 24px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1310;
+    --surface: #111b17;
+    --surface-2: #17231e;
+    --ink: #e8efea;
+    --ink-2: #b0bdb6;
+    --ink-3: #82918a;
+    --line: rgb(232 239 234 / 0.1);
+    --line-strong: rgb(232 239 234 / 0.2);
+    --accent-text: var(--green);
+    --accent-soft: rgb(0 236 151 / 0.12);
+    --title-em-color: var(--green);
+    --title-em-mark: transparent;
+    --danger: #ea6b61;
+    --danger-soft: rgb(234 107 97 / 0.14);
+    --warn: #e8b04f;
+    --warn-soft: rgb(232 176 79 / 0.14);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  }
+}
+
+/* The dark green band: same tokens, ink-on-green values, in both themes. */
+.section--ink,
+.closing {
+  --bg: #071a13;
+  --surface: rgb(255 255 255 / 0.05);
+  --surface-2: rgb(255 255 255 / 0.08);
+  --ink: #f1f6f2;
+  --ink-2: #bcd0c6;
+  --ink-3: #8faa9d;
+  --line: rgb(255 255 255 / 0.12);
+  --line-strong: rgb(255 255 255 / 0.24);
+  --accent-text: var(--green);
+  --accent-soft: rgb(0 236 151 / 0.12);
+  --title-em-color: var(--green);
+  --title-em-mark: transparent;
+  --danger: #ff8a7f;
+  --danger-soft: rgb(255 138 127 / 0.14);
+  --warn: #f2c06a;
+  --warn-soft: rgb(242 192 106 / 0.14);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.5);
+}
+
+/* ------------------------------------------------------------------- base -- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* the sticky nav */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ol,
+ul,
+dl,
+dd,
+figure,
+blockquote {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2.5px solid var(--accent-text);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+}
+
+.container {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+/* Headlines: serif, with the italic part in NearCash green: green text on
+   dark backgrounds, a green marker stroke under dark text on light ones. */
+.hero__title em,
+.section__title em,
+.closing__title em {
+  font-style: italic;
+  color: var(--title-em-color);
+  background-image: linear-gradient(
+    transparent 64%,
+    var(--title-em-mark) 64%,
+    var(--title-em-mark) 86%,
+    transparent 86%
+  );
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding-inline: 0.04em;
+}
+
+.eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* ---------------------------------------------------------------- buttons -- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.button--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, var(--ink));
+}
+
+.button--ghost {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.button--ghost:hover {
+  border-color: var(--ink);
+}
+
+.button--light {
+  background: var(--green);
+  color: var(--accent-ink);
+}
+
+.button--small {
+  min-height: 46px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+/* -------------------------------------------------------------------- nav -- */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 64px;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.wordmark img {
+  border-radius: 7px;
+}
+
+.wordmark--small {
+  font-size: 22px;
+}
+
+.nav__links {
+  display: flex;
+  gap: 4px;
+}
+
+.nav__links a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.nav__links a:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* ------------------------------------------------------------------- hero -- */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 72px 0 56px;
+  background:
+    radial-gradient(60% 70% at 85% 30%, var(--accent-soft), transparent 70%),
+    var(--bg);
+}
+
+.hero__grid {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  align-items: center;
+  gap: 56px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  flex-shrink: 0; /* stays round when the text wraps */
+}
+
+/* Each phrase is kept whole, so a wrap happens only at the separator. */
+.pill__text span {
+  white-space: nowrap;
+}
+
+/* Small phones: a slightly smaller pill fits on one line from ~390px up. */
+@media (max-width: 480px) {
+  .pill {
+    font-size: 13px;
+  }
+}
+
+.hero__title {
+  margin-top: 24px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(46px, 7vw, 90px);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.hero__lead {
+  max-width: 34em;
+  margin-top: 24px;
+  color: var(--ink-2);
+  font-size: clamp(17px, 1.6vw, 19px);
+  text-wrap: pretty;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.hero__visual {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+}
+
+.hero__note-stack {
+  position: relative;
+  width: min(100%, 540px);
+  aspect-ratio: 1300 / 620;
+  margin: 48px 0 28px;
+}
+
+/* Two classes, so it wins over `.banknote { position: relative }` below. */
+.hero__note-stack .hero__note {
+  position: absolute;
+  inset: 0;
+}
+
+.hero__note--back {
+  transform: translate(6%, -30%) rotate(7deg) scale(0.94);
+  filter: saturate(0.55) brightness(0.8);
+}
+
+.hero__note--front {
+  transform: rotate(-4deg);
+  animation: float 7s ease-in-out infinite;
+}
+
+@keyframes float {
+  50% {
+    transform: rotate(-3deg) translateY(-10px);
+  }
+}
+
+.hero__caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 64px;
+  border-top: 1px solid var(--line);
+}
+
+.facts__item {
+  display: flex;
+  flex-direction: column-reverse; /* number above its label, label read first */
+  justify-content: flex-end; /* = top, in a reversed column */
+  gap: 6px;
+  padding: 24px 24px 0 0;
+}
+
+.facts__item + .facts__item {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.facts dd {
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1;
+}
+
+.facts dt {
+  max-width: 16em;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+/* --------------------------------------------------------------- banknote -- */
+
+/* One SVG (components/Banknote.tsx); these classes style its engraving and
+   lettering. The ink is the same dark green in every theme. */
+.banknote {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.12)) drop-shadow(0 26px 34px rgb(0 80 52 / 0.32));
+  user-select: none;
+}
+
+.banknote__engraving {
+  stroke: var(--note-ink);
+  stroke-opacity: 0.22;
+}
+
+.banknote__hatch {
+  stroke: var(--note-ink);
+  stroke-opacity: 0.07;
+}
+
+/* The thread is "windowed": it shows through the paper in dashes. */
+.banknote__thread {
+  opacity: 0.55;
+  mask: repeating-linear-gradient(to bottom, #000 0 30px, transparent 30px 42px);
+}
+
+.banknote__frame {
+  fill: none;
+  stroke: var(--note-ink);
+  stroke-opacity: 0.55;
+}
+
+.banknote__frame--thin {
+  stroke-opacity: 0.3;
+}
+
+/* The medallion's beaded border: round dots from a dashed stroke. */
+.banknote__frame--beads {
+  stroke-opacity: 0.35;
+  stroke-dasharray: 0.1 11;
+  stroke-linecap: round;
+}
+
+.banknote__ink-line {
+  stroke: var(--note-ink);
+  stroke-opacity: 0.6;
+}
+
+.banknote__micro {
+  fill: var(--note-ink);
+  fill-opacity: 0.5;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.banknote__numeral {
+  fill: var(--note-ink);
+  font-family: var(--font-display);
+}
+
+.banknote__numeral--corner {
+  font-size: 78px;
+}
+
+.banknote__numeral--small {
+  font-size: 54px;
+  fill-opacity: 0.75;
+}
+
+.banknote__numeral--main {
+  font-size: 270px;
+  letter-spacing: -0.02em;
+}
+
+.banknote__title {
+  fill: var(--note-ink);
+  font-family: var(--font-display);
+  font-size: 66px;
+  letter-spacing: 0.22em;
+}
+
+.banknote__caps {
+  fill: var(--note-ink);
+  fill-opacity: 0.8;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0.4em;
+}
+
+.banknote__caps--fine {
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  fill-opacity: 0.7;
+}
+
+.banknote__serial {
+  fill: var(--note-ink);
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.banknote__currency {
+  fill: var(--note-ink);
+  font-family: var(--font-sans);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+/* A banknote held to a phone. */
+.banknote.is-tapping {
+  animation: tap 0.9s ease-in-out infinite;
+}
+
+@keyframes tap {
+  50% {
+    transform: translateY(-5%) scale(0.97);
+  }
+}
+
+/* ---------------------------------------------------------------- section -- */
+
+.section {
+  padding: 120px 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.section--paper + .section--paper {
+  border-top: 1px solid var(--line);
+}
+
+.section__header {
+  max-width: 780px;
+  margin-bottom: 56px;
+}
+
+.section__title {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(36px, 4.8vw, 60px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.section__lead {
+  max-width: 40em;
+  margin-top: 20px;
+  color: var(--ink-2);
+  font-size: 18px;
+  text-wrap: pretty;
+}
+
+.footnote {
+  margin-top: 20px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------- problem -- */
+
+/* The payment path: nodes joined by a line; servers are off switches. */
+.path {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.path::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 10%;
+  right: 10%;
+  border-top: 2px dashed var(--line-strong);
+}
+
+.path__node {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.path__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--accent-text);
+  box-shadow: var(--shadow);
+}
+
+.path__node--server .path__icon {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.path__label {
+  font-weight: 600;
+}
+
+.path__detail {
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.path__tag {
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.failures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 72px;
+}
+
+.failure {
+  padding: 28px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.failure__index {
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.failure h3 {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.failure p {
+  margin-top: 10px;
+  color: var(--ink-2);
+}
+
+.question {
+  max-width: 860px;
+  margin: 96px auto 0;
+  text-align: center;
+}
+
+.question blockquote p {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.question figcaption {
+  max-width: 36em;
+  margin: 22px auto 0;
+  color: var(--ink-2);
+  font-size: 18px;
+}
+
+/* ------------------------------------------------------------- incidents -- */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.chip:hover {
+  border-color: var(--ink);
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.chip__count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.timeline {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 24px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.timeline + .timeline {
+  margin-top: 40px;
+}
+
+.timeline__year {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+.timeline__list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.incident {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.incident__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.incident time {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.tag {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.tag--hacked,
+.tag--ordered {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tag--patched {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* .tag--outage keeps the neutral .tag colours. */
+
+.incident h4 {
+  margin-top: 14px;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.incident p {
+  margin-top: 8px;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+.incident__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: auto !important;
+  padding-top: 16px;
+}
+
+/* A link to the source behind a claim (components/SourceLink.tsx). */
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.source-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The scale of the problem: four sourced numbers above the timeline. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin-bottom: 56px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px 24px;
+  background: var(--surface);
+}
+
+.figure__value {
+  font-family: var(--font-display);
+  font-size: clamp(42px, 4.4vw, 58px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.figure__label {
+  margin-top: 12px;
+  color: var(--ink-2);
+  font-size: 15px;
+  text-wrap: pretty;
+}
+
+.figure__source {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* ----------------------------------------------------------------- advice -- */
+
+.advice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.advice__item {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.advice__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.advice__who {
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.advice__date {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.advice__quote p {
+  margin-top: 18px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 27px;
+  line-height: 1.15;
+  text-wrap: pretty; /* "balance" broke "three-day" at the hyphen */
+}
+
+.advice__text {
+  margin-top: 14px;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+.advice__source {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* The line that ties the advice back to NearCash. */
+.callout {
+  max-width: 860px;
+  margin: 56px auto 0;
+  color: var(--ink-2);
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.callout strong {
+  color: var(--ink);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------ off switch -- */
+
+.switchbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 28px;
+}
+
+.switchbar__hint {
+  color: var(--ink-3);
+  font-size: 15px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 20px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.toggle__track {
+  position: relative;
+  width: 60px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: background-color 0.25s ease;
+}
+
+.toggle__thumb {
+  position: absolute;
+  top: 4px;
+  left: 30px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: left 0.25s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.toggle--off .toggle__track {
+  background: var(--danger);
+}
+
+.toggle--off .toggle__thumb {
+  left: 4px;
+}
+
+.toggle__label {
+  font-size: 17px;
+}
+
+.demo {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.demo__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transition: border-color 0.3s ease;
+}
+
+.demo__panel--dead {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+.demo__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.demo__header h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status--up {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.status--down {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* A wallet app screen, drawn with plain HTML. */
+.mockapp {
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  min-height: 228px;
+}
+
+.mockapp__label {
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.mockapp__balance {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1.1;
+  transition: opacity 0.3s ease;
+}
+
+.mockapp__balance small {
+  margin-left: 8px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+
+.mockapp__balance--gone {
+  opacity: 0.35;
+}
+
+.mockapp__note {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.mockapp__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mockapp__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.mockapp__actions button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
+  pointer-events: none; /* part of the picture, not real controls */
+  transition: opacity 0.3s ease;
+}
+
+.mockapp__actions button:disabled {
+  opacity: 0.3;
+}
+
+/* A compact path: what each side depends on. */
+.minipath {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.minipath li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.minipath li.is-up {
+  color: var(--ink-2);
+}
+
+.minipath li.is-chain {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.minipath li.is-down {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: transparent;
+  text-decoration: line-through;
+}
+
+/* Dependencies and caption sit at the bottom of both panels, side by side. */
+.demo__panel > .minipath {
+  margin-top: auto;
+}
+
+.demo__caption {
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+.demo__note {
+  padding: 8px 2% 0;
+}
+
+.checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: 14px;
+  transition: color 0.25s ease;
+}
+
+.checklist li.is-passed {
+  color: var(--accent-text);
+}
+
+.demo__result {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+}
+
+.result {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.result strong {
+  font-weight: 650;
+}
+
+.result--valid {
+  color: var(--accent-text);
+}
+
+.result span {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* ----------------------------------------------------------- how it works -- */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  counter-reset: step;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.step--offline {
+  background: linear-gradient(160deg, var(--accent-soft), transparent 60%), var(--surface);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.step__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.step__number {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.step h3 {
+  margin-top: 22px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.step p {
+  margin-top: 12px;
+  color: var(--ink-2);
+}
+
+.step .step__detail {
+  margin-top: auto;
+  padding-top: 20px;
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+/* -------------------------------------------------------------- the check -- */
+
+.checks {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.check {
+  display: flex;
+  gap: 18px;
+  padding: 26px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transition: border-color 0.35s ease, background-color 0.35s ease;
+}
+
+.check__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  color: transparent;
+  transition: all 0.35s ease;
+}
+
+.check.is-lit {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.check.is-lit .check__mark {
+  border-color: var(--accent-text);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.check h3 {
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.check p {
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+.check code {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 18px 24px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-3);
+  transition: all 0.4s ease;
+}
+
+.verdict.is-lit {
+  border-style: solid;
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* --------------------------------------------------------------- security -- */
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.feature {
+  padding: 32px;
+  background: var(--surface);
+}
+
+.feature__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.feature h3 {
+  margin-top: 20px;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.feature p {
+  margin-top: 8px;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------------ trust -- */
+
+.phases {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 2px solid var(--ink);
+}
+
+.phase {
+  position: relative;
+  padding: 28px 28px 0 0;
+}
+
+/* A dot on the line marks each phase. */
+.phase::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--ink);
+}
+
+.phase:nth-child(2)::before {
+  background: var(--accent);
+  border-color: var(--accent-text);
+}
+
+.phase__name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.phase__who {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phase p {
+  margin-top: 12px;
+  color: var(--ink-2);
+}
+
+/* -------------------------------------------------------------------- atm -- */
+
+.atm {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  align-items: center;
+  gap: 64px;
+}
+
+.atm__art {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  margin-inline: auto;
+}
+
+.atm__body {
+  fill: var(--surface-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.atm__phone {
+  fill: #111;
+}
+
+.atm__screen {
+  fill: #f5f2ea;
+}
+
+.atm__screen-text {
+  fill: #0f1d18;
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+
+.atm__screen-sub {
+  fill: #00764c;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.atm__screen-button {
+  fill: var(--green);
+}
+
+.atm__note-value {
+  fill: #032619;
+  font-family: var(--font-display);
+  font-size: 34px;
+}
+
+.atm__slot {
+  fill: #0b1310;
+  stroke: var(--line-strong);
+}
+
+.atm__card {
+  animation: dispense 3.2s ease-in-out infinite;
+}
+
+@keyframes dispense {
+  0%,
+  15% {
+    transform: translateY(-46px);
+    opacity: 0;
+  }
+  45%,
+  85% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+}
+
+.atm__points {
+  display: grid;
+  gap: 28px;
+}
+
+.atm__points li {
+  padding-left: 24px;
+  border-left: 2px solid var(--accent);
+}
+
+.atm__points h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.atm__points p {
+  margin-top: 6px;
+  color: var(--ink-2);
+}
+
+/* -------------------------------------------------------------------- faq -- */
+
+.faq {
+  max-width: 860px;
+  border-top: 1px solid var(--line);
+}
+
+.faq__item {
+  border-bottom: 1px solid var(--line);
+}
+
+.faq__item summary {
+  position: relative;
+  padding: 22px 48px 22px 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faq__item summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A plus that turns into a minus. */
+.faq__item summary::before,
+.faq__item summary::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-text);
+  transition: transform 0.25s ease;
+}
+
+.faq__item summary::after {
+  transform: rotate(90deg);
+}
+
+.faq__item[open] summary::after {
+  transform: rotate(0deg);
+}
+
+.faq__item p {
+  max-width: 44em;
+  padding-bottom: 24px;
+  color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- closing -- */
+
+.closing {
+  overflow: hidden; /* the tilted banknote must not widen the page */
+  padding: 120px 0;
+  background:
+    radial-gradient(60% 80% at 80% 50%, rgb(0 236 151 / 0.14), transparent 70%),
+    var(--bg);
+  color: var(--ink);
+}
+
+.closing__inner {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  align-items: center;
+  gap: 64px;
+}
+
+.closing__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(40px, 5.6vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.closing__lead {
+  max-width: 32em;
+  margin: 22px 0 36px;
+  color: var(--ink-2);
+  font-size: 18px;
+}
+
+.closing__note {
+  transform: rotate(6deg);
+}
+
+.footer {
+  padding: 40px 0 48px;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+
+.footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+.footer__note {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------- responsive -- */
+
+@media (max-width: 960px) {
+  .hero__grid,
+  .closing__inner,
+  .atm {
+    grid-template-columns: 1fr;
+  }
+
+  .hero__visual {
+    order: -1;
+  }
+
+  .hero__note-stack {
+    width: min(86%, 480px);
+    margin: 40px 0 8px;
+  }
+
+  /* Six items: two columns. Three items (.failures) stay in three columns,
+     .steps go to one, so no item is left alone on a row. */
+  .features,
+  .figures {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .demo,
+  .advice,
+  .checks,
+  .steps,
+  .timeline__list {
+    grid-template-columns: 1fr;
+  }
+
+  .closing__note {
+    max-width: 380px;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  body {
+    font-size: 16px;
+  }
+
+  .nav__links {
+    display: none;
+  }
+
+  .hero {
+    padding: 40px 0 48px;
+  }
+
+  .section,
+  .closing {
+    padding: 80px 0;
+  }
+
+  .section__header {
+    margin-bottom: 40px;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+    margin-top: 40px;
+  }
+
+  .facts__item,
+  .facts__item + .facts__item {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .facts dd {
+    min-width: 36px;
+    font-size: 44px;
+  }
+
+  /* The payment path becomes a vertical list. */
+  .path {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .path::before {
+    top: 28px;
+    bottom: 28px;
+    left: 27px;
+    right: auto;
+    border-top: 0;
+    border-left: 2px dashed var(--line-strong);
+  }
+
+  .path__node {
+    grid-template-columns: 56px 1fr;
+    grid-template-rows: auto auto;
+    justify-items: start;
+    column-gap: 16px;
+    row-gap: 0;
+    text-align: left;
+  }
+
+  .path__icon {
+    grid-row: span 2;
+    margin-bottom: 0;
+  }
+
+  .path__label,
+  .path__detail {
+    align-self: end;
+  }
+
+  .path__detail {
+    align-self: start;
+  }
+
+  /* Room on the right for the "off switch" tag. */
+  .path__node--server {
+    padding-right: 104px;
+  }
+
+  .path__tag {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    margin-top: 0;
+    transform: translateY(-50%);
+  }
+
+  .failures,
+  .steps,
+  .features,
+  .phases,
+  .checklist {
+    grid-template-columns: 1fr;
+  }
+
+  .failures {
+    margin-top: 48px;
+  }
+
+  .question {
+    margin-top: 64px;
+  }
+
+  .timeline {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .timeline__year {
+    position: static;
+    font-size: 36px;
+  }
+
+  .demo__panel,
+  .failure,
+  .step,
+  .feature,
+  .check,
+  .incident {
+    padding: 22px;
+  }
+
+  .phases {
+    border-top: 0;
+    border-left: 2px solid var(--ink);
+    gap: 28px;
+  }
+
+  .phase {
+    padding: 0 0 0 24px;
+  }
+
+  .phase::before {
+    top: 8px;
+    left: -8px;
+  }
+
+
+  .footer__note {
+    margin-left: 0;
+  }
+
+  .closing__note {
+    width: 88%;
+    margin-inline: auto;
+    transform: rotate(4deg);
+  }
+}
+
+/* Small phones: two columns of figures are too narrow to read.
+   (After the 960px rule, so it wins.) */
+@media (max-width: 480px) {
+  .figures {
+    grid-template-columns: 1fr;
+  }
+
+  .figure {
+    padding: 22px 20px 20px;
+  }
+}
+
+/* ---------------------------------------------------------------- motion -- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

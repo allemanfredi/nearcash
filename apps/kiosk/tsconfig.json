@@ -1,0 +1,9 @@
+{
+  // The kiosk page (browser, React), shown by the iPhone on the ATM.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -1,0 +1,5 @@
+# near-sdk 5.29 needs rustc ≥ 1.95. Pinned so every build of the contract
+# uses the same compiler; wasm32 is the target NEAR runs.
+[toolchain]
+channel = "1.96.0"
+targets = ["wasm32-unknown-unknown"]

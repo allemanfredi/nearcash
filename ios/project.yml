@@ -1,0 +1,79 @@
+# XcodeGen spec for the NearCash iOS wallet — a fully native SwiftUI app.
+# This file is the source of truth: the .xcodeproj, Info.plist and
+# .entitlements are generated from it (and git-ignored).
+#
+#   pnpm ios:generate      # = cd ios && xcodegen generate
+name: NearCashWallet
+
+options:
+  bundleIdPrefix: xyz.nektarlabs.nearcash
+  deploymentTarget:
+    iOS: "17.0" # Observation (@Observable), sensoryFeedback, symbol effects
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  # libsecp256k1 (Bitcoin Core) for Swift. CryptoKit has no secp256k1, which
+  # the protocol uses for key A and for the issuer key.
+  P256K:
+    url: https://github.com/21-DOT-DEV/swift-secp256k1
+    exactVersion: 0.24.0
+
+targets:
+  NearCashWallet:
+    type: application
+    platform: iOS
+    sources:
+      - path: NearCashWallet
+    dependencies:
+      - package: P256K
+        product: P256K
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.nektarlabs.nearcash.wallet
+        TARGETED_DEVICE_FAMILY: "1" # iPhone
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon # rendered by scripts/make-app-icon.swift
+        CODE_SIGN_STYLE: Automatic
+        # NFC needs a PAID Apple Developer Program team (not a Personal Team).
+        # Set it in Xcode (Signing & Capabilities) or here:
+        # DEVELOPMENT_TEAM: XXXXXXXXXX
+    info:
+      path: NearCashWallet/Info.plist
+      properties:
+        CFBundleDisplayName: NearCash
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NFCReaderUsageDescription: Serve per leggere e verificare le banconote NearCash.
+        # iOS reports an ISO 7816 card only if it answers SELECT for one of
+        # these AIDs: the NearCash applet (docs/protocol.md §3).
+        com.apple.developer.nfc.readersession.iso7816.select-identifiers:
+          - F04E42414E4B01
+    entitlements:
+      path: NearCashWallet/NearCashWallet.entitlements
+      properties:
+        com.apple.developer.nfc.readersession.formats:
+          - TAG
+
+  NearCashWalletTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NearCashWalletTests
+    dependencies:
+      - target: NearCashWallet
+
+schemes:
+  NearCashWallet:
+    build:
+      targets:
+        NearCashWallet: all
+    test:
+      config: Debug
+      targets:
+        - NearCashWalletTests

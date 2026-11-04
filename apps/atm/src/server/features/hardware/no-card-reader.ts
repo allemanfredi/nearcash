@@ -1,0 +1,21 @@
+import type { NearCashCard } from '@nearcash/core';
+import type { Cassette } from './hardware.ports.ts';
+
+/**
+ * The cassette while no NFC reader is connected (the readers and the cards
+ * haven't arrived yet): it has no blank card to give, and says so, so the
+ * ATM shows "out of service" instead of taking a payment it can't turn into
+ * a banknote.
+ */
+export class NoCardReader implements Cassette {
+  readonly name = 'no card reader connected';
+  private static readonly REASON = 'no card reader is connected: no banknote can be made';
+
+  async unavailableReason(): Promise<string> {
+    return NoCardReader.REASON;
+  }
+
+  async nextBlankCard(): Promise<NearCashCard> {
+    throw new Error(NoCardReader.REASON);
+  }
+}

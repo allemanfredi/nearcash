@@ -1,0 +1,14 @@
+{
+  // The issuance server: NestJS, compiled by SWC (.swcrc), so — unlike the
+  // packages Node runs directly — it may use TypeScript's legacy decorators,
+  // their metadata (Nest's dependency injection reads constructor types) and
+  // constructor parameter properties. tsc only type-checks.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "erasableSyntaxOnly": false
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

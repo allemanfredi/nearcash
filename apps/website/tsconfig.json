@@ -1,0 +1,10 @@
+{
+  // Type checking only: Vite (Oxc) compiles the TSX, tsc never emits.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    // "vite/client" declares CSS/asset imports and import.meta.env.
+    "types": ["vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

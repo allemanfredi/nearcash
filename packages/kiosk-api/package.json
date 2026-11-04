@@ -1,0 +1,23 @@
+{
+  "name": "@nearcash/kiosk-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What the ATM's kiosk page (apps/kiosk) and the ATM server (apps/atm) share: the kiosk API types, refund-address rules and the payment options.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0",
+    "@scure/base": "2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

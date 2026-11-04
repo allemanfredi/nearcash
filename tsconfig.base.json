@@ -1,0 +1,27 @@
+{
+  // Shared TypeScript settings for every package and app in the monorepo.
+  //
+  // We never emit JavaScript with tsc: Vite bundles the browser app and
+  // Node (>= 22.18) runs .ts files directly with type stripping. tsc is only
+  // used as a type checker. That is why we need:
+  //  - "erasableSyntaxOnly": only TS syntax that can be stripped (no enums,
+  //    no namespaces, no constructor parameter properties);
+  //  - "allowImportingTsExtensions": imports spell the real ".ts" file name,
+  //    which is what Node requires when it runs TypeScript directly.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": []
+  }
+}

@@ -1,0 +1,24 @@
+[package]
+name = "nearcash-issuer"
+description = "NearCash issuer: asks the NEAR MPC network to sign banknote certificates for authorised ATMs."
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "=5.29.1"
+
+[dev-dependencies]
+near-sdk = { version = "=5.29.1", features = ["unit-testing"] }
+
+# Small, deterministic wasm, as recommended for NEAR contracts.
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

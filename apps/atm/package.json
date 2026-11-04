@@ -1,0 +1,32 @@
+{
+  "name": "@nearcash/atm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NearCash ATM server, on the Raspberry Pi inside the ATM: the kiosk API, the sale, the cassette and the dispenser. Holds no keys; value comes only from the issuance server. NestJS, feature-based modular monolith. The page on its iPhone is apps/kiosk.",
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist && swc src/server -d dist --strip-leading-paths --quiet",
+    "start": "pnpm build && node dist/server/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nearcash/core": "workspace:*",
+    "@nearcash/kiosk-api": "workspace:*",
+    "@nestjs/common": "12.2.0",
+    "@nestjs/core": "12.2.0",
+    "@nestjs/platform-express": "12.2.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "12.2.0",
+    "@swc/cli": "0.8.1",
+    "@swc/core": "1.16.18",
+    "@types/express": "5.0.6",
+    "@types/node": "^22.18.0",
+    "typescript": "7.0.2",
+    "unplugin-swc": "2.0.0",
+    "vitest": "5.0.5"
+  }
+}
