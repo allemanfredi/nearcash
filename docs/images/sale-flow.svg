@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1312" viewBox="0 0 1080 1312" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>How a NearCash banknote is made, then redeemed</title>
+<rect x="0.5" y="0.5" width="1079" height="1311" rx="14" fill="#ffffff" stroke="#dfe2e6"/>
+<text x="540.0" y="40" font-size="21" font-weight="bold" fill="#161616" text-anchor="middle">How a banknote is made</text>
+<rect x="65" y="60" width="230" height="44" rx="10" fill="#eef0f3"/>
+<text x="180" y="88" font-size="16" font-weight="bold" fill="#161616" text-anchor="middle">Customer</text>
+<rect x="315" y="60" width="230" height="44" rx="10" fill="#00EC97"/>
+<text x="430" y="88" font-size="16" font-weight="bold" fill="#06281c" text-anchor="middle">ATM</text>
+<rect x="565" y="60" width="230" height="44" rx="10" fill="#161616"/>
+<text x="680" y="88" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">Bank</text>
+<rect x="815" y="60" width="230" height="44" rx="10" fill="#eef0f3"/>
+<text x="930" y="88" font-size="16" font-weight="bold" fill="#161616" text-anchor="middle">Issuer contract</text>
+<rect x="16" y="116" width="1048" height="64" rx="8" fill="#f6f7f9"/>
+<circle cx="46" cy="148" r="14" fill="#161616"/>
+<text x="46" y="153" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">1</text>
+<rect x="16" y="184" width="1048" height="152" rx="8" fill="#ffffff"/>
+<circle cx="46" cy="260" r="14" fill="#161616"/>
+<text x="46" y="265" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">2</text>
+<rect x="16" y="340" width="1048" height="64" rx="8" fill="#f6f7f9"/>
+<circle cx="46" cy="372" r="14" fill="#161616"/>
+<text x="46" y="377" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">3</text>
+<rect x="16" y="408" width="1048" height="64" rx="8" fill="#ffffff"/>
+<circle cx="46" cy="440" r="14" fill="#161616"/>
+<text x="46" y="445" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">4</text>
+<rect x="16" y="476" width="1048" height="70" rx="8" fill="#f6f7f9"/>
+<circle cx="46" cy="511" r="14" fill="#161616"/>
+<text x="46" y="516" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">5</text>
+<rect x="16" y="550" width="1048" height="204" rx="8" fill="#ffffff"/>
+<circle cx="46" cy="652" r="14" fill="#161616"/>
+<text x="46" y="657" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">6</text>
+<rect x="16" y="758" width="1048" height="64" rx="8" fill="#f6f7f9"/>
+<circle cx="46" cy="790" r="14" fill="#161616"/>
+<text x="46" y="795" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">7</text>
+<line x1="180" y1="104" x2="180" y2="826" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="430" y1="104" x2="430" y2="826" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="680" y1="104" x2="680" y2="826" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="930" y1="104" x2="930" y2="826" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<text x="305" y="137" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">picks a banknote, the token</text>
+<text x="305" y="153" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">to pay with, and a PIN</text>
+<line x1="186" y1="164" x2="416" y2="164" stroke="#161616" stroke-width="2"/>
+<path d="M426,164 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="205" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">asks for a quote</text>
+<line x1="436" y1="216" x2="666" y2="216" stroke="#161616" stroke-width="2"/>
+<path d="M676,216 l-13,-6 v12 z" fill="#161616"/>
+<text x="805" y="241" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">a 1Click quote that pays</text>
+<text x="805" y="257" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">the bank's reserve on FAR</text>
+<line x1="686" y1="268" x2="916" y2="268" stroke="#161616" stroke-width="2"/>
+<path d="M926,268 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="293" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">the deposit address, shown</text>
+<text x="555" y="309" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">on the screen as a QR code</text>
+<line x1="674" y1="320" x2="444" y2="320" stroke="#161616" stroke-width="2" stroke-dasharray="6 5"/>
+<path d="M434,320 l13,-6 v12 z" fill="#161616"/>
+<text x="555" y="361" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">pays the deposit address from their own wallet;</text>
+<text x="555" y="377" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">1Click swaps it into the bank's reserve</text>
+<line x1="186" y1="388" x2="916" y2="388" stroke="#161616" stroke-width="2"/>
+<path d="M926,388 l-13,-6 v12 z" fill="#161616"/>
+<text x="805" y="429" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">SUCCESS: the bank reads it</text>
+<text x="805" y="445" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">from 1Click, not from the ATM</text>
+<line x1="924" y1="456" x2="694" y2="456" stroke="#161616" stroke-width="2" stroke-dasharray="6 5"/>
+<path d="M684,456 l13,-6 v12 z" fill="#161616"/>
+<rect x="295.0" y="484" width="270" height="48" rx="8" fill="#e8fff6" stroke="#00b377" stroke-width="1.5"/>
+<text x="430" y="505" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">pushes a blank card into the reader:</text>
+<text x="430" y="521" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">its chip makes its own keys, A and F</text>
+<text x="555" y="571" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">the card's public keys</text>
+<line x1="436" y1="582" x2="666" y2="582" stroke="#161616" stroke-width="2"/>
+<path d="M676,582 l-13,-6 v12 z" fill="#161616"/>
+<text x="805" y="607" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">moves the value from the reserve</text>
+<text x="805" y="623" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">to the card's own account,</text>
+<text x="805" y="639" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">on FAR (NEAR Confidential Intents)</text>
+<line x1="686" y1="650" x2="916" y2="650" stroke="#161616" stroke-width="2"/>
+<path d="M926,650 l-13,-6 v12 z" fill="#161616"/>
+<text x="805" y="675" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">has the certificate signed</text>
+<text x="805" y="691" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">by the NEAR MPC network</text>
+<line x1="686" y1="702" x2="916" y2="702" stroke="#161616" stroke-width="2"/>
+<path d="M926,702 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="727" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">the signed certificate</text>
+<line x1="674" y1="738" x2="444" y2="738" stroke="#161616" stroke-width="2" stroke-dasharray="6 5"/>
+<path d="M434,738 l13,-6 v12 z" fill="#161616"/>
+<text x="305" y="779" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">writes the certificate and the PIN,</text>
+<text x="305" y="795" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">checks the card, hands it out</text>
+<line x1="424" y1="806" x2="194" y2="806" stroke="#161616" stroke-width="2"/>
+<path d="M184,806 l13,-6 v12 z" fill="#161616"/>
+<rect x="16" y="836" width="1048" height="62" rx="10" fill="#161616"/>
+<text x="540" y="862" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">From here on the bank is no longer needed.</text>
+<text x="540" y="884" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="middle">The banknote goes hand to hand, offline: any phone can check it, and its holder redeems it on FAR with the PIN.</text>
+<text x="540.0" y="944" font-size="21" font-weight="bold" fill="#161616" text-anchor="middle">Redeem, whenever the holder wants</text>
+<rect x="65" y="964" width="230" height="44" rx="10" fill="#eef0f3"/>
+<text x="180" y="992" font-size="16" font-weight="bold" fill="#161616" text-anchor="middle">Holder</text>
+<rect x="315" y="964" width="230" height="44" rx="10" fill="#00EC97"/>
+<text x="430" y="992" font-size="16" font-weight="bold" fill="#06281c" text-anchor="middle">Wallet app</text>
+<rect x="565" y="964" width="230" height="44" rx="10" fill="#161616"/>
+<text x="680" y="992" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">Banknote</text>
+<rect x="815" y="964" width="230" height="44" rx="10" fill="#eef0f3"/>
+<text x="930" y="992" font-size="16" font-weight="bold" fill="#161616" text-anchor="middle">FAR</text>
+<rect x="16" y="1020" width="1048" height="64" rx="8" fill="#ffffff"/>
+<circle cx="46" cy="1052" r="14" fill="#161616"/>
+<text x="46" y="1057" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">8</text>
+<rect x="16" y="1088" width="1048" height="116" rx="8" fill="#f6f7f9"/>
+<circle cx="46" cy="1146" r="14" fill="#161616"/>
+<text x="46" y="1151" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">9</text>
+<rect x="16" y="1208" width="1048" height="84" rx="8" fill="#ffffff"/>
+<circle cx="46" cy="1250" r="14" fill="#161616"/>
+<text x="46" y="1255" font-size="15" font-weight="bold" fill="#00EC97" text-anchor="middle">10</text>
+<line x1="180" y1="1008" x2="180" y2="1296" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="430" y1="1008" x2="430" y2="1296" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="680" y1="1008" x2="680" y2="1296" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<line x1="930" y1="1008" x2="930" y2="1296" stroke="#c9cdd3" stroke-width="1.5" stroke-dasharray="4 5"/>
+<text x="305" y="1041" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">chooses where the money goes,</text>
+<text x="305" y="1057" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">and types the PIN</text>
+<line x1="186" y1="1068" x2="416" y2="1068" stroke="#161616" stroke-width="2"/>
+<path d="M426,1068 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="1109" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">asks the card to sign</text>
+<text x="555" y="1125" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">the withdrawal, with the PIN</text>
+<line x1="436" y1="1136" x2="666" y2="1136" stroke="#161616" stroke-width="2"/>
+<path d="M676,1136 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="1161" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">its one signature: from now</text>
+<text x="555" y="1177" font-size="13" font-weight="normal" fill="#5b616b" text-anchor="middle">on the card is spent, for good</text>
+<line x1="674" y1="1188" x2="444" y2="1188" stroke="#161616" stroke-width="2" stroke-dasharray="6 5"/>
+<path d="M434,1188 l13,-6 v12 z" fill="#161616"/>
+<text x="680" y="1229" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">submits the signed withdrawal</text>
+<line x1="436" y1="1240" x2="916" y2="1240" stroke="#161616" stroke-width="2"/>
+<path d="M926,1240 l-13,-6 v12 z" fill="#161616"/>
+<text x="555" y="1265" font-size="13" font-weight="normal" fill="#161616" text-anchor="middle">the card's money reaches the holder's own wallet</text>
+<line x1="924" y1="1276" x2="194" y2="1276" stroke="#161616" stroke-width="2"/>
+<path d="M184,1276 l13,-6 v12 z" fill="#161616"/>
+</svg>

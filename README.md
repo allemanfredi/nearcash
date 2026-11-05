@@ -11,15 +11,7 @@ redeeming it involve only the card, a phone and FAR.
 
 ## The system
 
-```
- customer's wallet ──pays──▶ 1Click ──▶ bank reserve (FAR)
-                                             │ funds the card
- iPhone ──▶ kiosk page ──▶ ATM server ──▶ issuance server ──▶ issuer contract ──▶ NEAR MPC
- (screen)   └────── Raspberry Pi ─────┘   (the bank)          (NEAR)              (signs)
-                        │ writes and dispenses
-                        ▼
-                    banknote ──hand to hand, offline──▶ wallet app (iPhone)
-```
+![How a banknote is made, then redeemed, step by step](docs/images/sale-flow.svg)
 
 **The banknote** (`applet/`) is an NFC Java Card (NXP JCOP4 J3R180) running
 the NearCash applet. Its two keys are born in the chip and never leave it:
@@ -49,6 +41,10 @@ a stolen cassette is a stack of blank plastic.
 - The **ATM server** (`apps/atm`) runs the sale: it asks the issuance server
   for the quote and the certificate, writes it with the customer's PIN on a
   blank card, verifies the card like a receiver would, and dispenses it.
+- The **body** (`hardware/atm`) is 3D printed in two colours. Blank cards
+  wait in a hopper; a pusher slides the bottom one into the reader, which
+  sits on a turret. Once the banknote is issued, the turret turns round and
+  hands it out of the ATM's smiling mouth.
 - The **kiosk page** (`apps/kiosk`) is what the iPhone shows: the customer
   picks a banknote, then the network and the token to pay with (USDC, ETH or
   SOL), and chooses a PIN. The screen then shows only the QR code of the
