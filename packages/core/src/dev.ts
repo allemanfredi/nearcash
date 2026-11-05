@@ -1,7 +1,8 @@
 /**
  * DEVELOPMENT ONLY — a fixed, publicly known issuer key, for tests and for
- * test banknotes (the issuance server's NEARCASH_SIGNER=dev), accepted by the
- * wallet in Debug builds only.
+ * test banknotes (the issuance server's NEARCASH_SIGNER=dev, and
+ * NEARCASH_SKIP_MPC=true for demos), accepted by the wallet in Debug builds
+ * only.
  *
  * Its secret is derived from a public string: anyone can forge certificates
  * with it. Never use it for real cards, and never list it as a trusted

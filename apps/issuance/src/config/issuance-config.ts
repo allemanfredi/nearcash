@@ -6,6 +6,9 @@
  * simulated independently:
  *
  *   NEARCASH_SIGNER     mpc (default) | dev     who certifies banknotes
+ *   NEARCASH_SKIP_MPC   false (default) | true  demos: with the mpc signer, the issuance server
+ *                                               signs certificates itself (public DEV key)
+ *                                               instead of asking the NEAR MPC network
  *   NEARCASH_PAYMENTS   simulated (default) | 1click
  *   NEARCASH_RESERVE    simulated (default) | far
  *
@@ -20,7 +23,7 @@
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { MpcIssuerConfig } from '@nearcash/core';
+import type { IssuerContractLocation, MpcIssuerConfig } from '@nearcash/core';
 import type { ChainRpcUrls } from '../features/refunds/chain-sender-finder.ts';
 import type { FarReserveConfig } from '../features/reserve/far.reserve.ts';
 
@@ -30,8 +33,17 @@ export const ISSUANCE_CONFIG = Symbol('ISSUANCE_CONFIG');
 export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 export type IssuanceConfig = {
-  /** Who signs certificates: the NEAR MPC network through the issuer contract, or the public DEV key. */
-  certificates: { kind: 'mpc'; mpc: MpcIssuerConfig } | { kind: 'dev' };
+  /**
+   * Which banknotes exist and who signs their certificates:
+   *   mpc       the issuer contract's banknotes, signed by the NEAR MPC network (production);
+   *   skip-mpc  the issuer contract's banknotes, signed by the issuance server itself with
+   *             the public DEV key (demos: NEARCASH_SKIP_MPC=true);
+   *   dev       the DEV key's single test banknote, no issuer contract at all (development).
+   */
+  certificates:
+    | { kind: 'mpc'; mpc: MpcIssuerConfig }
+    | { kind: 'skip-mpc'; issuerContract: IssuerContractLocation }
+    | { kind: 'dev' };
   /** How customers pay. The 1Click settings are kept even when payments are simulated (the live check uses them). */
   payments: { kind: 'simulated' | '1click'; oneClick: OneClickSettings };
   /** Where the value of each banknote comes from. */
@@ -97,19 +109,36 @@ export function issuanceConfigFromEnvironment(env: NodeJS.ProcessEnv): IssuanceC
     return value;
   };
 
+  const yesNo = (name: string): boolean => {
+    const value = (env[name] ?? '').trim().toLowerCase();
+    if (value === '' || value === 'false' || value === '0') return false;
+    if (value === 'true' || value === '1') return true;
+    throw new ConfigurationError(`${name} must be true or false`);
+  };
+
   const signer = oneOf('NEARCASH_SIGNER', ['mpc', 'dev'], 'mpc');
-  const certificates: IssuanceConfig['certificates'] =
-    signer === 'dev'
-      ? { kind: 'dev' }
-      : {
-          kind: 'mpc',
-          mpc: {
-            rpcUrl: env.NEARCASH_NEAR_RPC ?? 'https://test.rpc.fastnear.com',
-            issuerContractId: required('NEARCASH_ISSUER_CONTRACT'),
-            issuanceAccountId: required('NEARCASH_ISSUANCE_ACCOUNT'),
-            issuancePrivateKey: required('NEARCASH_ISSUANCE_PRIVATE_KEY') as MpcIssuerConfig['issuancePrivateKey'],
-          },
-        };
+  // NEARCASH_SKIP_MPC only matters with the mpc signer: the dev signer never asks MPC.
+  const skipMpc = signer === 'mpc' && yesNo('NEARCASH_SKIP_MPC');
+  const issuerContract = (): IssuerContractLocation => ({
+    rpcUrl: env.NEARCASH_NEAR_RPC ?? 'https://test.rpc.fastnear.com',
+    issuerContractId: required('NEARCASH_ISSUER_CONTRACT'),
+  });
+  let certificates: IssuanceConfig['certificates'];
+  if (signer === 'dev') {
+    certificates = { kind: 'dev' };
+  } else if (skipMpc) {
+    // Only the contract is read (its banknotes): no NEAR account or key is needed.
+    certificates = { kind: 'skip-mpc', issuerContract: issuerContract() };
+  } else {
+    certificates = {
+      kind: 'mpc',
+      mpc: {
+        ...issuerContract(),
+        issuanceAccountId: required('NEARCASH_ISSUANCE_ACCOUNT'),
+        issuancePrivateKey: required('NEARCASH_ISSUANCE_PRIVATE_KEY') as MpcIssuerConfig['issuancePrivateKey'],
+      },
+    };
+  }
 
   const reserveKind = oneOf('NEARCASH_RESERVE', ['simulated', 'far'], 'simulated');
   const reserve: IssuanceConfig['reserve'] =

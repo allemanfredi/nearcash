@@ -5,7 +5,8 @@
  *   pnpm issuance:check
  *
  *  1. certificates: the issuer contract's configuration, and that the key
- *     it writes into certificates is the one MPC derives for it;
+ *     it writes into certificates is the one MPC derives for it (with
+ *     NEARCASH_SKIP_MPC: only the contract's banknotes, MPC is not used);
  *  2. payments: a dry-run 1Click quote for every denomination, with the
  *     configured recipient type (CONFIDENTIAL_INTENTS needs the partner key),
  *     plus a public INTENTS quote as a reference for the route;
@@ -21,6 +22,7 @@ import { AppModule } from './app.module.ts';
 import { issuanceConfigFromEnvironment, loadIssuanceEnvironment } from './config/issuance-config.ts';
 import { CERTIFICATE_AUTHORITY, type CertificateAuthority } from './features/certificates/certificate-authority.port.ts';
 import { MpcCertificateAuthority } from './features/certificates/mpc-certificate-authority.ts';
+import { SkipMpcCertificateAuthority } from './features/certificates/skip-mpc-certificate-authority.ts';
 import { OneClickGateway } from './features/payments/one-click.gateway.ts';
 import { RESERVE, type Reserve } from './features/reserve/reserve.port.ts';
 
@@ -47,6 +49,11 @@ if (authority instanceof MpcCertificateAuthority) {
   const contract = await authority.contractConfig();
   if (contract.issuer_public_key === issuerKey) ok('the contract writes the MPC-derived key into certificates');
   else bad(`contract issuer_public_key ${contract.issuer_public_key} ≠ MPC key ${issuerKey}`);
+}
+if (authority instanceof SkipMpcCertificateAuthority) {
+  const denominations = await Promise.all((await authority.denominations()).map((amount) => authority.denomination(amount)));
+  ok(`denominations (from the issuer contract): ${denominations.map((d) => `${formatAmount(d.amount, d.decimals)} ${d.symbol}`).join(', ')}`);
+  console.log('  ! NEARCASH_SKIP_MPC: certificates are signed here with the public DEV key, MPC is not checked');
 }
 
 // ------------------------------------------------------------------ 2. payments

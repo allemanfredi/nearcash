@@ -117,49 +117,39 @@ export type IssuerContractConfig = {
   daily_value_cap: string;
 };
 
-/** What the signer needs from NEAR. Separate so tests can stand in for the network. */
-export interface MpcIssuerClient {
-  /** The MPC key of (issuer contract, path), as NEAR prints it: "secp256k1:…". */
-  derivedPublicKey(): Promise<string>;
+/** Reads the issuer contract's configuration (a view call: no account, no key). */
+export interface IssuerContractReader {
   /** The issuer contract's configuration. */
   contractConfig(): Promise<IssuerContractConfig>;
+}
+
+/** What the signer needs from NEAR. Separate so tests can stand in for the network. */
+export interface MpcIssuerClient extends IssuerContractReader {
+  /** The MPC key of (issuer contract, path), as NEAR prints it: "secp256k1:…". */
+  derivedPublicKey(): Promise<string>;
   /** Calls sign_certificate on the issuer contract; resolves with the MPC SignatureResponse. */
   signCertificate(args: SignCertificateArgs): Promise<unknown>;
 }
 
-/** Certificates signed by the NEAR MPC network, through the issuer contract. */
-export class MpcCertificateSigner implements CertificateSigner {
-  readonly name: string;
-  private readonly client: MpcIssuerClient;
-  private cachedPublicKey: Uint8Array | undefined;
-  /** The contract's configuration changes rarely: read it at most once a minute. */
-  private cachedConfig: { value: IssuerContractConfig; readAt: number } | undefined;
+/**
+ * The banknotes the issuer contract allows (token, symbol, decimals,
+ * denominations), read from its config() view. The configuration changes
+ * rarely: it is read at most once a minute.
+ */
+export class IssuerContractBanknotes {
+  private readonly reader: IssuerContractReader;
+  private cached: { value: IssuerContractConfig; readAt: number } | undefined;
 
-  constructor(client: MpcIssuerClient, name: string) {
-    this.client = client;
-    this.name = name;
+  constructor(reader: IssuerContractReader) {
+    this.reader = reader;
   }
 
-  async publicKey(): Promise<Uint8Array> {
-    this.cachedPublicKey ??= parseNearSecp256k1Key(await this.client.derivedPublicKey());
-    return this.cachedPublicKey;
-  }
-
-  /**
-   * Sends the fields; the contract rebuilds the body and has MPC sign
-   * SHA-256 of it. issueCertificate checks the signature against the body
-   * built here, so any mismatch with the contract is caught before issuing.
-   */
-  async sign(request: CertificateSigningRequest): Promise<Uint8Array> {
-    const { fields } = request;
-    return mpcSignatureToCompact(
-      await this.client.signCertificate({
-        auth_public_key: bytesToHex(fields.authPublicKey),
-        funds_public_key: bytesToHex(fields.fundsPublicKey),
-        amount: fields.amount.toString(),
-        issued_at: fields.issuedAt,
-      }),
-    );
+  /** The issuer contract's configuration (token, denominations, the key it writes into certificates…). */
+  async contractConfig(): Promise<IssuerContractConfig> {
+    if (!this.cached || Date.now() - this.cached.readAt > 60_000) {
+      this.cached = { value: await this.reader.contractConfig(), readAt: Date.now() };
+    }
+    return this.cached.value;
   }
 
   /**
@@ -185,38 +175,108 @@ export class MpcCertificateSigner implements CertificateSigner {
   async denominations(): Promise<bigint[]> {
     return (await this.contractConfig()).denominations.map(BigInt);
   }
+}
+
+/** Certificates signed by the NEAR MPC network, through the issuer contract. */
+export class MpcCertificateSigner implements CertificateSigner {
+  readonly name: string;
+  private readonly client: MpcIssuerClient;
+  private readonly banknotes: IssuerContractBanknotes;
+  private cachedPublicKey: Uint8Array | undefined;
+
+  constructor(client: MpcIssuerClient, name: string) {
+    this.client = client;
+    this.name = name;
+    this.banknotes = new IssuerContractBanknotes(client);
+  }
+
+  async publicKey(): Promise<Uint8Array> {
+    this.cachedPublicKey ??= parseNearSecp256k1Key(await this.client.derivedPublicKey());
+    return this.cachedPublicKey;
+  }
+
+  /**
+   * Sends the fields; the contract rebuilds the body and has MPC sign
+   * SHA-256 of it. issueCertificate checks the signature against the body
+   * built here, so any mismatch with the contract is caught before issuing.
+   */
+  async sign(request: CertificateSigningRequest): Promise<Uint8Array> {
+    const { fields } = request;
+    return mpcSignatureToCompact(
+      await this.client.signCertificate({
+        auth_public_key: bytesToHex(fields.authPublicKey),
+        funds_public_key: bytesToHex(fields.fundsPublicKey),
+        amount: fields.amount.toString(),
+        issued_at: fields.issuedAt,
+      }),
+    );
+  }
+
+  /** See IssuerContractBanknotes.denomination. */
+  denomination(amount: bigint): Promise<Denomination> {
+    return this.banknotes.denomination(amount);
+  }
+
+  /** Allowed amounts, smallest unit. */
+  denominations(): Promise<bigint[]> {
+    return this.banknotes.denominations();
+  }
 
   /** The issuer contract's configuration (token, denominations, the key it writes into certificates…). */
-  async contractConfig(): Promise<IssuerContractConfig> {
-    if (!this.cachedConfig || Date.now() - this.cachedConfig.readAt > 60_000) {
-      this.cachedConfig = { value: await this.client.contractConfig(), readAt: Date.now() };
-    }
-    return this.cachedConfig.value;
+  contractConfig(): Promise<IssuerContractConfig> {
+    return this.banknotes.contractConfig();
   }
 }
 
 // ------------------------------------------------------------------ NEAR connection
 
-/** Everything the issuance server needs to reach the MPC network. */
-export type MpcIssuerConfig = {
+/** Where the issuer contract is: enough to read it. */
+export type IssuerContractLocation = {
   /** NEAR RPC, e.g. https://test.rpc.fastnear.com */
   rpcUrl: string;
   /** Our issuer contract (contracts/issuer); it names the MPC contract and the key path. */
   issuerContractId: string;
+};
+
+/** Everything the issuance server needs to reach the MPC network. */
+export type MpcIssuerConfig = IssuerContractLocation & {
   /** The issuance server's NEAR account, authorised in the issuer contract as a minter (add_minter). */
   issuanceAccountId: string;
   /** Its key ("ed25519:…"): a function-call key limited to sign_certificate. */
   issuancePrivateKey: KeyPairString;
 };
 
-/** Talks to NEAR with near-api-js. */
+/** Reads the issuer contract over NEAR RPC (near-api-js): no account, no key. */
+export class NearIssuerContractReader implements IssuerContractReader {
+  private readonly location: IssuerContractLocation;
+  private readonly provider: JsonRpcProvider;
+
+  constructor(location: IssuerContractLocation) {
+    this.location = location;
+    this.provider = new JsonRpcProvider({ url: location.rpcUrl });
+  }
+
+  async contractConfig(): Promise<IssuerContractConfig> {
+    const config = await this.provider.callFunction<IssuerContractConfig>({
+      contractId: this.location.issuerContractId,
+      method: 'config',
+      args: {},
+    });
+    if (!config) throw new Error('issuer contract returned no config');
+    return config;
+  }
+}
+
+/** Talks to NEAR with near-api-js: reads the issuer contract, and calls it as the issuance server. */
 export class NearMpcIssuerClient implements MpcIssuerClient {
   private readonly config: MpcIssuerConfig;
   private readonly provider: JsonRpcProvider;
+  private readonly reader: NearIssuerContractReader;
 
   constructor(config: MpcIssuerConfig) {
     this.config = config;
     this.provider = new JsonRpcProvider({ url: config.rpcUrl });
+    this.reader = new NearIssuerContractReader(config);
   }
 
   async derivedPublicKey(): Promise<string> {
@@ -237,14 +297,8 @@ export class NearMpcIssuerClient implements MpcIssuerClient {
     return key;
   }
 
-  async contractConfig(): Promise<IssuerContractConfig> {
-    const config = await this.provider.callFunction<IssuerContractConfig>({
-      contractId: this.config.issuerContractId,
-      method: 'config',
-      args: {},
-    });
-    if (!config) throw new Error('issuer contract returned no config');
-    return config;
+  contractConfig(): Promise<IssuerContractConfig> {
+    return this.reader.contractConfig();
   }
 
   async signCertificate(args: SignCertificateArgs): Promise<unknown> {

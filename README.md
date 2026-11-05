@@ -94,6 +94,10 @@ the card is funded inside FAR, and the certificate carries only the day.
 pnpm atm:demo <user>@<raspberry-address>
 ```
 
+Add `--skip-mpc` for a quick demo: the issuance server then signs the
+certificates itself, with the public DEV key, instead of asking the NEAR MPC
+network. Only the wallet app's Debug builds accept those banknotes.
+
 It installs what the Raspberry Pi needs, deploys the ATM server and the
 kiosk page there and starts them in a tmux session on the Pi. The issuance
 server and the website run on this computer. Then it opens a tmux session

@@ -325,6 +325,15 @@ path `nearbank-certificates-v1`, minter `nearbank-mint-56b0c6.testnet`, issuer k
 5 / 10 / 20 USDC (placeholder token ids, to replace with FAR's), cap 1000 USDC a day.
 These testnet accounts were created before the project was renamed NearCash and keep their on-chain names: renaming them means a new issuer key (redeploy + new key in the wallets).
 
+**Demos without MPC** (`NEARCASH_SKIP_MPC=true`, `pnpm atm:demo --skip-mpc`):
+the issuance server still reads the banknotes (token, denominations) from the
+issuer contract, but builds and signs each certificate itself with the
+public DEV key (`packages/core/src/dev.ts`) instead of calling
+`sign_certificate`. The daily cap and the public counters are skipped with
+it. The ATM trusts that key because it asks the issuance server
+(`GET /issuer`); the wallet app trusts it only in Debug builds. Anyone can
+forge certificates with the DEV key: demo banknotes only.
+
 ## 12. Issuance server and ATM: "the ATM doesn't print money"
 
 | | Issuance server (`apps/issuance`, one, protected) | ATM (`apps/atm` + `apps/kiosk`, many, in the street) |

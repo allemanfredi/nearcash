@@ -30,3 +30,4 @@ issuance-refunds.json*
 .DS_Store
 .idea/
 .vscode/
+hardware/atm/clash-*.stl

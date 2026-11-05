@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # NearCash ATM demo in one command:
 #
-#   scripts/atm-demo.sh <[user@]raspberry-address> [password]
-#   pnpm atm:demo <[user@]raspberry-address> [password]
+#   scripts/atm-demo.sh [--skip-mpc] <[user@]raspberry-address> [password]
+#   pnpm atm:demo [--skip-mpc] <[user@]raspberry-address> [password]
+#
+#   --skip-mpc   the issuance server signs the banknotes' certificates itself,
+#                with the public DEV key, instead of asking the NEAR MPC
+#                network: no NEAR account, no gas, no wait. The banknotes are
+#                still the issuer contract's. Demo banknotes only: the ATM
+#                trusts the key because it asks the issuance server, the
+#                wallet app only in its Debug builds. (Without the flag:
+#                NEAR MPC, unless .env.issuance sets NEARCASH_SKIP_MPC=true.)
 #
 # Deploys the ATM to the Raspberry Pi and starts it there, in a tmux session
 # ("nearcash") on the Pi itself: it keeps running when this computer
@@ -71,19 +79,31 @@ quietly() {
 
 # ============================================================== arguments
 
-[ $# -ge 1 ] && [ "$1" != "-h" ] && [ "$1" != "--help" ] || usage
+# Options anywhere; the rest are the address and the password, in this order.
+SKIP_MPC=0
+ARGS=()
+for argument in "$@"; do
+  case "$argument" in
+    --skip-mpc) SKIP_MPC=1 ;;
+    -h | --help) usage ;;
+    -*) die "unknown option \"$argument\" (see: scripts/atm-demo.sh --help)" ;;
+    *) ARGS+=("$argument") ;;
+  esac
+done
+[ "${#ARGS[@]}" -ge 1 ] && [ "${#ARGS[@]}" -le 2 ] || usage
+ADDRESS="${ARGS[0]}"
 # The user is what comes before the first "@", the host what comes after the
 # last one: "ale@192.168.1.129" and a repeated "ale@ale@192.168.1.129" both
 # mean user ale on 192.168.1.129. (ssh itself splits at the last "@", so a
 # repeated user would otherwise log in as the user "ale@ale".)
-case "$1" in
-  *@*) PI_USER="${1%%@*}"; PI_HOST="${1##*@}" ;;
-  *) PI_USER="${PI_USER:-pi}"; PI_HOST="$1" ;;
+case "$ADDRESS" in
+  *@*) PI_USER="${ADDRESS%%@*}"; PI_HOST="${ADDRESS##*@}" ;;
+  *) PI_USER="${PI_USER:-pi}"; PI_HOST="$ADDRESS" ;;
 esac
-[ -n "$PI_USER" ] && [ -n "$PI_HOST" ] || die "the address must be user@host (e.g. ale@192.168.1.129), not \"$1\""
+[ -n "$PI_USER" ] && [ -n "$PI_HOST" ] || die "the address must be user@host (e.g. ale@192.168.1.129), not \"$ADDRESS\""
 TARGET="$PI_USER@$PI_HOST"
 PI_SSH_PORT="${PI_SSH_PORT:-22}"
-PASSWORD="${2:-}"
+PASSWORD="${ARGS[1]:-}"
 
 ask_password() {
   [ -n "$PASSWORD" ] && return
@@ -109,6 +129,21 @@ done
 ATM_TOKEN="$(sed -n 's/^NEARCASH_ATM_TOKENS=//p' "$ROOT/.env.issuance" | tail -1 | tr -d "\"' " | cut -d, -f1 | cut -d: -f2-)"
 [ -n "$ATM_TOKEN" ] || die "NEARCASH_ATM_TOKENS in .env.issuance has no token (format: name:token)"
 info "issuance server configuration: .env.issuance"
+# Who signs the certificates. --skip-mpc wins over .env.issuance; without it
+# the file decides (NEARCASH_SKIP_MPC, false by default).
+if [ "$SKIP_MPC" = 0 ]; then
+  case "$(sed -n 's/^NEARCASH_SKIP_MPC=//p' "$ROOT/.env.issuance" | tail -1 | tr -d "\"' " | tr '[:upper:]' '[:lower:]')" in
+    true | 1) SKIP_MPC=1 ;;
+  esac
+fi
+if [ "$SKIP_MPC" = 1 ]; then
+  CERTIFICATES="signed by the issuance server with the public DEV key (MPC skipped): demo banknotes"
+  warn "MPC skipped: the issuance server signs the certificates itself (public DEV key)."
+  warn "Only the wallet app's Debug builds accept these banknotes."
+else
+  CERTIFICATES="signed by the NEAR MPC network, through the issuer contract"
+  info "certificates: NEAR MPC (add --skip-mpc to sign them on this computer, for a demo)"
+fi
 
 # A previous run of the demo: stop it, so its ports are free again.
 if tmux has-session -t "$SESSION" 2>/dev/null; then
@@ -371,8 +406,12 @@ mkdir -p "$LOCAL_RUN"
 loop_script "$LOCAL_RUN/raspberry.sh" "$ROOT" "Raspberry Pi" \
   "ssh -t $(printf '%q ' "${SSH_BASE[@]}") $(printf %q "$TARGET") $(printf %q "TERM=xterm-256color tmux attach -t $PI_SESSION")" \
   "— disconnected from the Pi (the ATM keeps running there).   Enter: reconnect"
+# NEARCASH_SKIP_MPC is set explicitly either way, so the pane does what this
+# run says (variables set here win over .env.issuance).
+SKIP_MPC_VALUE=false
+[ "$SKIP_MPC" = 1 ] && SKIP_MPC_VALUE=true
 loop_script "$LOCAL_RUN/issuance.sh" "$ROOT" "issuance server" \
-  "NEARCASH_ISSUANCE_HOST=0.0.0.0 NEARCASH_ISSUANCE_PORT=$ISSUANCE_PORT node apps/issuance/dist/main.js"
+  "NEARCASH_ISSUANCE_HOST=0.0.0.0 NEARCASH_ISSUANCE_PORT=$ISSUANCE_PORT NEARCASH_SKIP_MPC=$SKIP_MPC_VALUE node apps/issuance/dist/main.js"
 loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   "pnpm --filter @nearcash/website exec vite preview --host 0.0.0.0 --port $WEBSITE_PORT --strictPort"
 
@@ -383,6 +422,7 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   echo "  Kiosk (iPhone)     $KIOSK_URL    or    $SCHEME://$PI_ADDRESS:$KIOSK_PORT"
   echo "  Website            http://localhost:$WEBSITE_PORT    ·    http://$LAPTOP_ADDRESS:$WEBSITE_PORT"
   echo "  Issuance server    http://$LAPTOP_ADDRESS:$ISSUANCE_PORT   (configuration: .env.issuance)"
+  echo "  Certificates       $CERTIFICATES"
   echo
   echo "The Pi's session, directly (ATM server and kiosk page; Ctrl-b d leaves it running):"
   echo "  $CONNECT_COMMAND"

@@ -45,3 +45,7 @@ console.log(
 );
 console.log(`  ATMs:         ${[...config.atmTokens.values()].join(', ')}`);
 if (config.certificates.kind === 'dev') console.warn('⚠ signing with the public DEV key: test banknotes only');
+if (config.certificates.kind === 'skip-mpc') {
+  console.warn('⚠ NEARCASH_SKIP_MPC: this server signs certificates itself, with the public DEV key, instead of NEAR MPC.');
+  console.warn('  Demo banknotes only: the wallet app accepts them in its Debug builds only.');
+}
