@@ -60,7 +60,7 @@ export class SalesService {
     const deadline = new Date(this.clock.now().getTime() + this.config.paymentWindowMinutes * 60_000);
     const quote = await this.gateway.createQuote({
       originAsset: request.originAsset,
-      destinationAsset: denomination.tokenId,
+      destinationAsset: this.reserveToken(denomination.tokenId),
       amountOut: request.amount,
       recipient: this.config.reserveAccountId,
       refund: request.refundTo ? { kind: 'customer', address: request.refundTo } : { kind: 'reserve' },
@@ -165,7 +165,7 @@ export class SalesService {
       this.sales.put(record);
       record.fundingReference = await this.reserve.fundCard({
         cardAccountId: record.card.accountId,
-        tokenId: denomination.tokenId,
+        tokenId: this.reserveToken(denomination.tokenId),
         amount: denomination.amount,
       });
       this.sales.put(record);
@@ -186,6 +186,15 @@ export class SalesService {
     record.status = 'ISSUED';
     this.sales.put(record);
     return certificate.bytes;
+  }
+
+  /**
+   * The token the reserve receives and sends to cards: NEARCASH_RESERVE_TOKEN
+   * if set (e.g. while the issuer contract still names a placeholder token),
+   * otherwise the banknote's token in the issuer contract.
+   */
+  private reserveToken(banknoteTokenId: string): string {
+    return this.config.reserveTokenId ?? banknoteTokenId;
   }
 
   private requireSale(id: string): SaleRecord {

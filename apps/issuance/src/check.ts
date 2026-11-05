@@ -10,7 +10,8 @@
  *  2. payments: a dry-run 1Click quote for every denomination, with the
  *     configured recipient type (CONFIDENTIAL_INTENTS needs the partner key),
  *     plus a public INTENTS quote as a reference for the route;
- *  3. reserve: whether FAR is configured.
+ *  3. reserve: the FAR reserve's account, and a dry-run 1Click quote of a
+ *     transfer to a card (FAR → FAR), which must deliver the whole amount.
  *
  * It builds the same modules as the server (a Nest application context,
  * without HTTP) and reads what it needs from them.
@@ -24,6 +25,7 @@ import { CERTIFICATE_AUTHORITY, type CertificateAuthority } from './features/cer
 import { MpcCertificateAuthority } from './features/certificates/mpc-certificate-authority.ts';
 import { SkipMpcCertificateAuthority } from './features/certificates/skip-mpc-certificate-authority.ts';
 import { OneClickGateway } from './features/payments/one-click.gateway.ts';
+import { FarReserve } from './features/reserve/far.reserve.ts';
 import { RESERVE, type Reserve } from './features/reserve/reserve.port.ts';
 
 const env = loadIssuanceEnvironment();
@@ -67,14 +69,16 @@ console.log(`payments: 1Click dry-run quotes from ${originAsset}`);
 const confidential = new OneClickGateway(config.payments.oneClick);
 const reference = new OneClickGateway({ baseUrl: config.payments.oneClick.baseUrl, recipientType: 'INTENTS' });
 // The reference quote needs a real public token id: FAR's IMT ids are not listed by 1Click.
-const referenceAsset = env.NEARCASH_CHECK_REFERENCE_ASSET ?? 'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
+const referenceAsset =
+  env.NEARCASH_CHECK_REFERENCE_ASSET ?? config.reserveTokenId ?? 'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 
 for (const amount of await authority.denominations()) {
   const denomination = await authority.denomination(amount);
   const label = `${formatAmount(amount, denomination.decimals)} ${denomination.symbol}`;
   const request = {
     originAsset,
-    destinationAsset: denomination.tokenId,
+    // What the sales service asks for (NEARCASH_RESERVE_TOKEN, or the contract's token).
+    destinationAsset: config.reserveTokenId ?? denomination.tokenId,
     amountOut: amount,
     recipient: config.reserveAccountId,
     refund: refundTo ? ({ kind: 'customer', address: refundTo } as const) : ({ kind: 'reserve' } as const),
@@ -103,12 +107,21 @@ for (const amount of await authority.denominations()) {
 
 // ------------------------------------------------------------------ 3. reserve
 console.log(`reserve: ${reserve.name}`);
-if (config.reserve.kind === 'far') {
+if (reserve instanceof FarReserve && config.reserve.kind === 'far') {
   const { far } = config.reserve;
-  ok(`FAR contract ${far.contractId}, relay ${far.relayUrl}, salt ${far.contractSalt ?? '(read from contract)'}`);
-  if (!far.relayApiKey) bad('no NEARCASH_FAR_RELAY_API_KEY: the private relay needs the partner key');
+  ok(`account ${far.reserveAccountId} on ${far.contractId}`);
+  const smallest = (await authority.denominations()).reduce((a, b) => (a < b ? a : b));
+  const denomination = await authority.denomination(smallest);
+  const tokenId = config.reserveTokenId ?? denomination.tokenId;
+  const label = `${formatAmount(smallest, denomination.decimals)} ${denomination.symbol}`;
+  try {
+    await reserve.checkCardTransfer(tokenId, smallest);
+    ok(`a ${label} transfer to a card through 1Click arrives whole (no fee)`);
+  } catch (error) {
+    bad(`transfer to a card refused — ${short(error)}`);
+  }
 } else {
-  bad('FAR reserve not configured (NEARCASH_RESERVE=far, relay URL and keys from the Defuse team)');
+  bad('FAR reserve not configured (NEARCASH_RESERVE=far, NEARCASH_RESERVE_ACCOUNT, NEARCASH_RESERVE_PRIVATE_KEY)');
 }
 
 await app.close();

@@ -239,7 +239,11 @@ certificate. Value is created only by the issuance server, after it has seen the
 3. The ATM takes a blank card: SELECT, GENERATE_KEYS → A, F.
 4. The issuance server transfers the value from the reserve to the card's own account
    inside FAR (the Ethereum address of F) and has the NEAR MPC network sign
-   the certificate (§11). One payment buys exactly one card.
+   the certificate (§11). One payment buys exactly one card. The transfer is
+   a 1Click quote from FAR to FAR (the same token, the card as recipient,
+   no fee): 1Click prepares the transfer intent, the reserve checks that it
+   is exactly that transfer and signs it (NEP-413), 1Click executes it, and
+   the issuance server waits for `SUCCESS`.
 5. The ATM: STORE_CERT in chunks, FINALIZE with the holder's PIN, then
    verifies the card exactly as a receiver would (below), and dispenses it.
 
@@ -367,7 +371,11 @@ into the reserve, and:
 4. A refund smaller than the network fee of sending it back is kept, and
    recorded as kept.
 The return is a 1Click quote paid from the reserve inside FAR: 1Click
-prepares the transfer intent, the reserve signs it (NEP-413).
+prepares the transfer intent, the reserve signs it (NEP-413). Before signing
+anything, the reserve checks that the intent is exactly the agreed transfer
+(one `transfer`, the agreed token and amount, to the quote's deposit address,
+for `intents.far`): its signature spends its money, and the intent comes from
+an outside service.
 
 What an attack gets:
 - **Stolen cassette**: blank plastic. Nothing to freeze.

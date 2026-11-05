@@ -10,21 +10,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OneClickClient } from '../src/features/payments/one-click.client.ts';
 import { OneClickRefundSender } from '../src/features/refunds/one-click-refund-sender.ts';
 import { SimulatedRefundSender } from '../src/features/refunds/simulated-refund-sender.ts';
-import { FarReserve } from '../src/features/reserve/far.reserve.ts';
+import { ReserveKey } from '../src/features/reserve/reserve-key.ts';
 import type { Nep413Payload } from '../src/features/reserve/reserve.port.ts';
 import { SimulatedReserve } from '../src/features/reserve/simulated.reserve.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 
-// near-api-js through CommonJS, as FarReserve loads it.
+// near-api-js through CommonJS, as the reserve's key loads it.
 const near = createRequire(import.meta.url)('near-api-js') as typeof NearApi;
 
 const USDC_BASE = 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near';
-const PAYLOAD: Nep413Payload = {
-  message: JSON.stringify({ deadline: '2026-11-04T13:00:00Z', intents: [{ intent: 'transfer' }], signer_id: 'reserve.far' }),
-  nonce: Buffer.alloc(32, 7).toString('base64'),
-  recipient: 'intents.far',
-};
+/** The intent 1Click prepares for a refund: the reserve pays the return quote's deposit address. */
+function transferIntent(change: { receiver?: string; token?: string; amount?: string; signer?: string; recipient?: string } = {}): Nep413Payload {
+  const transfer = {
+    intent: 'transfer',
+    receiver_id: change.receiver ?? 'return-deposit',
+    // Inside FAR the token is an IMT id: "imt:<treasury>:<asset id>".
+    tokens: { [change.token ?? `imt:treasury:${USDC_BASE}`]: change.amount ?? '5000' },
+  };
+  return {
+    message: JSON.stringify({ deadline: '2026-11-04T13:00:00Z', intents: [transfer], signer_id: change.signer ?? 'reserve.far' }),
+    nonce: Buffer.alloc(32, 7).toString('base64'),
+    recipient: change.recipient ?? 'intents.far',
+  };
+}
+const PAYLOAD = transferIntent();
 
 /** Answers 1Click by path, recording every request body. */
 function stubOneClick(answers: Record<string, () => Response>) {
@@ -41,7 +51,10 @@ function stubOneClick(answers: Record<string, () => Response>) {
 }
 
 function sender() {
-  return new OneClickRefundSender(new OneClickClient({ apiKey: 'partner-jwt' }), new SimulatedReserve(), 'reserve.far');
+  return new OneClickRefundSender(new OneClickClient({ apiKey: 'partner-jwt' }), new SimulatedReserve(), {
+    reserveAccountId: 'reserve.far',
+    contractId: 'intents.far',
+  });
 }
 
 describe('a refund sent back through 1Click', () => {
@@ -91,11 +104,44 @@ describe('a refund sent back through 1Click', () => {
     expect(await sender().send({ asset: USDC_BASE, amount: 5_000n, recipient: '0xpayer' })).toEqual({ kind: 'not-sent', reason: 'service unavailable' });
 
     stubOneClick({
-      '/v0/quote': () => new Response(JSON.stringify({ quote: { depositAddress: 'd', amountOut: '4900' } })),
+      '/v0/quote': () => new Response(JSON.stringify({ quote: { depositAddress: 'return-deposit', amountOut: '4900' } })),
       '/v0/generate-intent': () => new Response(JSON.stringify({ intent: { standard: 'nep413', payload: PAYLOAD } })),
       '/v0/submit-intent': () => new Response('{"message":"timeout"}', { status: 504 }),
     });
     await expect(sender().send({ asset: USDC_BASE, amount: 5_000n, recipient: '0xpayer' })).rejects.toThrow(/timeout/);
+  });
+});
+
+describe('the reserve signs only the transfer it agreed to', () => {
+  const quote = () => new Response(JSON.stringify({ quote: { depositAddress: 'return-deposit', amountOut: '4900' } }));
+  const tampered: [string, Nep413Payload][] = [
+    ['another receiver', transferIntent({ receiver: 'attacker.near' })],
+    ['a larger amount', transferIntent({ amount: '5000000' })],
+    ['another token', transferIntent({ token: 'imt:treasury:nep141:wrap.near' })],
+    ['another signer', transferIntent({ signer: 'someone-else.far' })],
+    ['another contract', transferIntent({ recipient: 'intents.near' })],
+  ];
+  for (const [what, payload] of tampered) {
+    it(`an intent with ${what} is not signed, nor submitted`, async () => {
+      const requests = stubOneClick({
+        '/v0/quote': quote,
+        '/v0/generate-intent': () => new Response(JSON.stringify({ intent: { standard: 'nep413', payload } })),
+      });
+      const outcome = await sender().send({ asset: USDC_BASE, amount: 5_000n, recipient: '0xpayer' });
+      expect(outcome.kind).toBe('not-sent');
+      expect(outcome.kind === 'not-sent' && outcome.reason).toMatch(/unexpected intent/);
+      expect(requests.map((request) => request.path)).not.toContain('/v0/submit-intent');
+    });
+  }
+
+  it('two intents in one message are not signed either', async () => {
+    const two = JSON.parse(PAYLOAD.message) as { intents: unknown[] };
+    two.intents.push(two.intents[0]);
+    stubOneClick({
+      '/v0/quote': quote,
+      '/v0/generate-intent': () => new Response(JSON.stringify({ intent: { standard: 'nep413', payload: { ...PAYLOAD, message: JSON.stringify(two) } } })),
+    });
+    expect((await sender().send({ asset: USDC_BASE, amount: 5_000n, recipient: '0xpayer' })).kind).toBe('not-sent');
   });
 });
 
@@ -110,14 +156,9 @@ describe('simulated refunds', () => {
 describe('the FAR reserve signs 1Click’s intent exactly (NEP-413)', () => {
   it('a valid ed25519 signature of the NEP-413 hash of the payload, by the reserve’s key', async () => {
     const keyPair = near.KeyPair.fromRandom('ed25519');
-    const reserve = new FarReserve({
-      contractId: 'intents.far',
-      relayUrl: 'http://127.0.0.1:9', // never called: signing is local
-      reserveAccountId: 'reserve.far',
-      reservePrivateKey: keyPair.toString() as `ed25519:${string}`,
-    });
+    const key = new ReserveKey({ reserveAccountId: 'reserve.far', reservePrivateKey: keyPair.toString() as `ed25519:${string}` });
 
-    const signed = await reserve.signIntent(PAYLOAD);
+    const signed = await key.sign(PAYLOAD);
     expect(signed.standard).toBe('nep413');
     expect(signed.payload).toEqual(PAYLOAD); // the payload is passed on untouched
     expect(signed.public_key).toBe(keyPair.getPublicKey().toString());

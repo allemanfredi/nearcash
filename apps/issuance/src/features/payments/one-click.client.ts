@@ -7,10 +7,13 @@
 
 export type OneClickConnection = {
   baseUrl?: string;
-  /** Partner JWT (X-API-Key): required for CONFIDENTIAL_INTENTS (FAR). */
+  /**
+   * Partner JWT, sent as X-API-Key: required for everything on FAR
+   * (CONFIDENTIAL_INTENTS). 1Click's user sessions (Authorization: Bearer)
+   * are not used: they only read a user's private balances and history, and
+   * on these endpoints that header would be taken for a partner key.
+   */
   apiKey?: string;
-  /** Optional user session (Authorization: Bearer). */
-  userSession?: string;
 };
 
 /** A non-2xx answer, with its status and body (1Click explains itself in `{"message": …}`). */
@@ -40,12 +43,10 @@ export class OneClickError extends Error {
 export class OneClickClient {
   private readonly baseUrl: string;
   private readonly apiKey: string | undefined;
-  private readonly userSession: string | undefined;
 
   constructor(connection: OneClickConnection) {
     this.baseUrl = (connection.baseUrl ?? 'https://1click.chaindefuser.com').replace(/\/+$/, '');
     this.apiKey = connection.apiKey;
-    this.userSession = connection.userSession;
   }
 
   /** One request; throws OneClickError for any non-2xx answer. */
@@ -55,7 +56,6 @@ export class OneClickClient {
       headers: {
         'Content-Type': 'application/json',
         ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}),
-        ...(this.userSession ? { Authorization: `Bearer ${this.userSession}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });

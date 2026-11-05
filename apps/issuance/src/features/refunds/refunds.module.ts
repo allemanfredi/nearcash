@@ -48,12 +48,10 @@ import { SimulatedSenderFinder } from './simulated-sender-finder.ts';
         if (config.reserve.kind !== 'far') {
           return new ManualRefundSender('the reserve is not in FAR (NEARCASH_RESERVE=simulated): nothing can sign for it');
         }
-        return new OneClickRefundSender(
-          new OneClickClient(config.payments.oneClick),
-          reserve,
-          config.reserveAccountId,
-          config.payments.oneClick.recipientType,
-        );
+        return new OneClickRefundSender(new OneClickClient(config.payments.oneClick), reserve, {
+          reserveAccountId: config.reserve.far.reserveAccountId,
+          contractId: config.reserve.far.contractId,
+        });
       },
     },
     RefundsService,
