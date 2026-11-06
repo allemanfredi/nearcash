@@ -53,11 +53,13 @@ struct PrimaryButtonStyle: ButtonStyle {
 
 /// Quiet text-only action under a primary button.
 struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
             .frame(maxWidth: .infinity, minHeight: 48)
             .foregroundStyle(Theme.accent)
-            .opacity(configuration.isPressed ? 0.5 : 1)
+            .opacity(!isEnabled ? 0.35 : configuration.isPressed ? 0.5 : 1)
     }
 }

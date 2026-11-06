@@ -101,8 +101,8 @@ private struct Stamp: View {
 #Preview {
     VStack(spacing: 20) {
         BanknoteView(style: .placeholder)
-        BanknoteView(style: .valid, amount: "0,01", symbol: "ETH")
-        BanknoteView(style: .spent, amount: "0,01", symbol: "ETH")
+        BanknoteView(style: .valid, amount: "0.01", symbol: "ETH")
+        BanknoteView(style: .spent, amount: "0.01", symbol: "ETH")
     }
     .padding()
 }

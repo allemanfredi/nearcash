@@ -5,9 +5,12 @@ on NEAR Intents (FAR, the private variant) in an account that only the card's
 chip can spend, once. Banknotes change hands like cash, offline: any phone
 can check one without a server.
 
-**The bank is trusted only while a banknote is created.** Once issued, a
-banknote no longer needs the bank at all: checking it, handing it over and
-redeeming it involve only the card, a phone and FAR.
+**The bank is trusted only to make banknotes:** it prepares the cards
+(installs the applet on each blank chip) and issues them (funds each card and
+has it certified). Once issued, a banknote no longer needs the bank at all:
+checking it, handing it over and redeeming it involve only the card, a phone
+and FAR. Handing a banknote over is as private and confidential as paying in
+cash: two people, offline, and nothing recorded on a server or on-chain.
 
 ## The system
 
@@ -31,9 +34,16 @@ network fee of sending them back are kept.
 
 **The issuer contract** (`contracts/issuer`) is a NEAR contract that only the
 issuance server may call. It writes each certificate itself and has the
-**NEAR MPC network** sign it, so the issuer key never exists in one place.
-It also bounds the bank: only set denominations, a daily cap, the issue date
-rounded to the day, public counters, and access that can be revoked at once.
+**NEAR MPC network** sign it. That signature is what makes a banknote, and
+MPC changes how its key is kept: the key is split among the network's
+independent nodes, a signature needs many of them to agree, and no node,
+server or person ever holds it whole. There is no key file to steal and no
+employee who could leak it: forging banknotes would mean compromising enough
+of those nodes at the same time, far harder than breaking into one bank
+server. Breaking into the issuance server gives only what the contract
+allows, because it also bounds the bank: only set denominations, a daily cap,
+the issue date rounded to the day, public counters, and access that can be
+revoked at once, without changing the key in any wallet.
 
 **The ATM** is a Raspberry Pi with an NFC reader, a cassette of blank cards,
 a dispenser and an iPhone as its screen. It holds no key that creates value:
@@ -58,7 +68,11 @@ a stolen cassette is a stack of blank plastic.
 offline over NFC — that it is issued and unspent, that its certificate is
 signed by the issuer, that the certificate belongs to this chip, and that the
 chip answers a fresh challenge — and lets the receiver take it over by
-changing the PIN.
+changing the PIN. It also redeems a banknote: the holder picks a token, a
+chain and an address, the card signs once, and 1Click delivers the value
+there. If the delivery fails, the value goes back not to the card, which can
+no longer sign, but to the holder's refund account inside FAR, held by a
+passkey of the app (iCloud Keychain, Face ID), from which the app withdraws it.
 
 **The website** (`apps/website`) explains the problem NearCash solves: money
 held through apps stops when their servers are hacked, patched or switched
@@ -76,11 +90,15 @@ itself is specified in [docs/protocol.md](docs/protocol.md).
 2. **Circulation.** Hand to hand, with no network at all. The receiver's
    phone checks the banknote; after the deal the giver tells the PIN and the
    receiver changes it.
-3. **Redemption.** The holder's card signs one withdrawal from its own
-   account, with the PIN. The card is spent from that moment.
+3. **Redemption.** With the PIN, the card signs once to send its value to an
+   address of the holder's, in the token and on the chain they choose. The
+   card is spent from that moment. If the delivery fails, the value lands in
+   the holder's refund account inside FAR, held by a passkey of the wallet
+   app, never back on the card.
 
-The bank takes part only in step 1, and the issuer contract limits even
-that. From step 2 on it plays no role: it is not asked to check a banknote,
+The bank takes part only in making the banknote: it prepares the blank cards
+before they go into an ATM, and it issues them in step 1, which the issuer
+contract limits. From step 2 on it plays no role: it is not asked to check a banknote,
 it is not asked to approve a transfer or a redemption, and if it went
 offline, or disappeared, banknotes already issued would keep working.
 Nobody can block, freeze or switch off a banknote in someone's pocket.

@@ -52,11 +52,7 @@ enum Secp256k1 {
     /// Returns the low-s twin of a compact signature: if s > n/2, s becomes n − s.
     /// Both forms are equally valid ECDSA signatures; libsecp256k1 accepts only the low one.
     static func lowS(_ compactSignature: Data) -> Data {
-        let bytes = [UInt8](compactSignature)
-        let r = Array(bytes[0..<32])
-        let s = Array(bytes[32..<64])
-        guard isGreater(s, than: halfOrder) else { return compactSignature }
-        return Data(r + subtract(s, from: order))
+        LowS.normalize(compactSignature, order: order, halfOrder: halfOrder)
     }
 
     // MARK: - Internals
@@ -67,26 +63,5 @@ enum Secp256k1 {
         case 65: return try P256K.Signing.PublicKey(dataRepresentation: key, format: .uncompressed)
         default: throw CardError.malformedResponse(command: "public key", reason: "\(key.count) bytes")
         }
-    }
-
-    /// a > b for two 32-byte big-endian numbers.
-    private static func isGreater(_ a: [UInt8], than b: [UInt8]) -> Bool {
-        for (x, y) in zip(a, b) where x != y {
-            return x > y
-        }
-        return false
-    }
-
-    /// minuend − subtrahend for 32-byte big-endian numbers (minuend ≥ subtrahend).
-    private static func subtract(_ subtrahend: [UInt8], from minuend: [UInt8]) -> [UInt8] {
-        var result = [UInt8](repeating: 0, count: 32)
-        var borrow = 0
-        for index in stride(from: 31, through: 0, by: -1) {
-            var difference = Int(minuend[index]) - Int(subtrahend[index]) - borrow
-            borrow = difference < 0 ? 1 : 0
-            if difference < 0 { difference += 256 }
-            result[index] = UInt8(difference)
-        }
-        return result
     }
 }

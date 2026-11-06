@@ -29,7 +29,7 @@ enum TrustedIssuers {
     /// Its secret is derived from a public string, so anyone can forge
     /// certificates with it. It is compiled into Debug builds only.
     static let development = TrustedIssuer(
-        name: "NearCash DEV (non sicuro)",
+        name: "NearCash DEV (insecure)",
         publicKey: Data(hex: "02ad39122fd36f3fa5a3ff43f7bd82608e88b4343c1a0f4405b66ecc0d4d47bf8c")!
     )
 

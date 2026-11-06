@@ -36,6 +36,7 @@ enum Instruction: UInt8 {
     case info = 0x10
     case getCertificate = 0x12
     case auth = 0x20
+    case signOnce = 0x30
     case changePin = 0x32
 }
 

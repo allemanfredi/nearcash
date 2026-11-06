@@ -16,6 +16,7 @@ ios/*.xcodeproj/
 ios/NearCashWallet/Info.plist
 ios/NearCashWallet/NearCashWallet.entitlements
 ios/build/
+ios/Secrets.xcconfig
 
 # Local secrets (issuer keys etc.) — never commit these
 .atm-demo/

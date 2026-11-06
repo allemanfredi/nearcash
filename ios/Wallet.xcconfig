@@ -1,0 +1,11 @@
+// Build settings of the NearCash wallet (referenced by project.yml).
+//
+// Redeeming a banknote needs two values that are not in git: the wallet's
+// 1Click partner key and the domain of the refund passkey. They come from
+// Secrets.xcconfig, next to this file (git-ignored); copy
+// Secrets.xcconfig.example to start. Without them the app still checks and
+// takes over banknotes (offline); only "Redeem" stays disabled.
+NEARCASH_WALLET_1CLICK_API_KEY =
+NEARCASH_PASSKEY_DOMAIN =
+
+#include? "Secrets.xcconfig"

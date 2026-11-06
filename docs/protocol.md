@@ -16,8 +16,8 @@ that never leave it:
 | **F** (funds) | Controls the card's own account on NEAR Intents (FAR). The account id is the Ethereum-style address of F (`0x…`). | **Exactly once**, to redeem, protected by a PIN. |
 | **A** (auth) | Proves "I am a genuine, unspent NearCash card" during person-to-person exchanges. | Every time someone checks the card. |
 
-At issuance the ATM signs a **certificate** that binds A, F, the amount and
-the token. While cards circulate nothing happens on-chain. When a card signs
+At issuance the bank has the NEAR MPC network sign a **certificate** (§11)
+that binds A, F, the amount and the token. While cards circulate nothing happens on-chain. When a card signs
 its redemption it marks itself **spent**, atomically, and from then on it can
 never sign again.
 
@@ -32,14 +32,15 @@ The target card is the **NXP JCOP4 J3R180**. Any card works if it has:
 
 1. Java Card **3.0.5 Classic** or later (needed for `Signature.signPreComputedHash`).
 2. GlobalPlatform with **known keys** ("unfused", default keys `404142…4F`),
-   otherwise the applet cannot be installed.
+   otherwise the applet cannot be installed. Once it is installed they
+   should be replaced (§10.1).
 3. ECC over a 256-bit prime field with **custom curve parameters**
    (on-card generation of secp256k1 key pairs).
 4. `Signature.ALG_ECDSA_SHA_256`, both `sign` (for A) and
    `signPreComputedHash` (for F).
 5. `OwnerPIN` and atomic transactions (`JCSystem.beginTransaction`), which
    every Java Card has.
-6. **Dual interface**: contact (to load the applet during development) and
+6. **Dual interface**: contact (to install the applet, §9 Card preparation) and
    ISO 14443-4 contactless (NFC, for daily use).
 7. A few KB of EEPROM and ~200 bytes of RAM. Extended APDUs are **not** needed.
 8. ISO ID-1 form factor (85.6 × 54 × 0.76 mm), for the ATM card dispenser.
@@ -195,8 +196,11 @@ Verified in the `near/intents` sources (`crates/signatures/erc191`,
   normalises `s → n − s` when needed and flips the recovery bit;
 - the signature is 65 bytes: `r (32) ‖ s (32) ‖ recoveryId (1)`.
 
-Still to confirm when the ATM is built: the exact intent JSON for withdrawals
-and how the 65 bytes are encoded in the submitted payload.
+In the intent submitted to 1Click the 65 bytes are written
+`"secp256k1:" ‖ base58(r ‖ s ‖ recoveryId)`, next to `"standard": "erc191"`
+and the intent JSON as `payload` (1Click's MultiPayloadErc191; accepted by
+submit-intent on 2026-11-06, with an empty test account). The intent JSON
+1Click prepares for the card is in §9, Redemption.
 
 The card's account id is the Ethereum address of F:
 `"0x" ‖ hex(keccak256(X ‖ Y)[12..32])`, lowercase.
@@ -227,10 +231,21 @@ keys the card itself reports in INFO.
 
 ## 9. Flows
 
+**Card preparation: operators, before the ATM**
+
+The ATM never installs code: it only speaks the commands of §5. Cards reach
+its cassette already prepared by an operator, with a contact reader and
+GlobalPlatformPro (the `gp` tool, which uses the GlobalPlatform keys of §2):
+1. Wipe the card: delete everything on it. A card on which the default keys
+   do not work (someone changed them) is discarded.
+2. Install the applet (§3). The card is now `EMPTY`.
+3. Lock the card's code (TODO, §10.1).
+4. Put it in the ATM's cassette.
+
 **Issuance: the ATM sells, the issuance server creates value (§12)**
 
-The ATM's cassette holds **blank** cards (state `EMPTY`): no funds, no
-certificate. Value is created only by the issuance server, after it has seen the payment.
+The ATM's cassette holds **blank** cards (state `EMPTY`, prepared as above):
+no funds, no certificate. Value is created only by the issuance server, after it has seen the payment.
 1. The user picks a denomination, the network and token to pay with, and a
    PIN. The **issuance server** makes a 1Click quote whose recipient is the
    bank's reserve inside FAR (confidential); the display shows the deposit
@@ -262,10 +277,55 @@ A card taken before step 5 is worthless: wallets reject `EMPTY` and
 4. AUTH with a fresh random challenge, check the signature with A and that the signed state is `ISSUED`.
 5. After the deal: the giver tells the PIN, the receiver runs CHANGE_PIN.
 
-**Redemption (ATM or phone)**
-1. Build the withdrawal intent, compute its ERC-191 digest.
-2. SIGN_ONCE(PIN, digest) → DER signature; the card is now `SPENT`.
-3. Convert to `r ‖ s ‖ v` with low-s, submit to the FAR relay.
+**Redemption (phone): straight to the holder's chain, refunds to a passkey account inside FAR**
+
+The holder picks a token, a chain and an address of theirs; the card's one
+signature pays a 1Click quote that delivers there. If that delivery fails,
+1Click refunds the value, and the refund can never go back to the card: it
+can no longer sign, so the money would be stuck for good (§10). It goes to
+the holder's **refund account** instead: an account inside FAR whose key is
+a passkey of the wallet app (P-256, kept by iOS in the iCloud Keychain and
+used with Face ID). NEAR Intents derives the account from the key, with no
+registration: `"0x" ‖ hex(keccak256("p256" ‖ X ‖ Y)[12..32])`. From there the
+app withdraws a refund with the passkey (a WebAuthn-signed transfer intent),
+as many times as needed. Like every movement on FAR it goes through 1Click:
+1. Tap 1: the app checks the banknote as a receiver would (above) and reads F.
+2. A 1Click quote: `EXACT_INPUT` of the certificate's whole amount, from the
+   card's token inside FAR (`depositType` `CONFIDENTIAL_INTENTS`) to the
+   chosen token on its chain (`recipientType` `DESTINATION_CHAIN`); slippage
+   0 when the token is the same (a plain withdrawal), 1 % for a swap;
+   `refundTo` the refund account (`refundType` `CONFIDENTIAL_INTENTS`).
+   1Click prepares the transfer intent that pays the quote's deposit address
+   (generate-intent, standard `erc191`, signer: the card's account).
+3. The app checks that the intent is exactly that transfer: for
+   `intents.far`, signed as the card's account, one `transfer` of that
+   amount of that token to the deposit address, nothing else. The card signs
+   only once, and a wrong intent would use up its one signature. The app
+   saves the redemption, then computes the ERC-191 digest (§7).
+4. Tap 2: SIGN_ONCE(PIN, digest) → DER signature; the card is now `SPENT`.
+   The app converts it to `r ‖ s ‖ v` with low-s and checks that it
+   recovers F.
+5. submit-intent with `{"standard": "erc191", "payload": <the intent>,
+   "signature": "secp256k1:<base58 of the 65 bytes>"}`, then `/v0/status`
+   until `SUCCESS` or `REFUNDED`.
+
+The intent 1Click prepares for the card (seen live on 2026-11-06), which the
+card signs as an ERC-191 message:
+
+```json
+{"verifying_contract": "intents.far", "signer_id": "0x<card's account>",
+ "deadline": "2026-11-09T09:50:01.000Z", "nonce": "<base64>",
+ "intents": [{"intent": "transfer", "receiver_id": "<the quote's deposit address>",
+   "tokens": {"imt:<FAR's treasury>:nep141:eth-0xa0b8…eb48.omft.near": "5000000"}}]}
+```
+
+An interrupted redemption resumes from the saved intent: the same digest
+gets the same signature back from the card (§5.4).
+
+The app talks to 1Click directly, with a 1Click partner key of its own
+(confidential quotes need one), not the bank's: the key identifies the app
+and moves no funds. The bank plays no part in a redemption. The ATM does not
+redeem yet.
 
 ## 10. Known limitations (to declare)
 
@@ -285,15 +345,104 @@ A card taken before step 5 is worthless: wallets reject `EMPTY` and
   a card elsewhere. Acceptable for low denominations.
 - If key A were ever extracted from a chip, fake cards could pass AUTH; funds
   of other cards stay safe. Keep denominations below the cost of a chip attack.
+- **What can go wrong in a redemption (§9).** Redeeming spends the card's
+  only signature: from then on nothing left in the card's account can ever
+  move again.
+  - A refund back to the card would lock the funds for good. So refunds go
+    to the holder's refund account, held by a passkey, which can sign again.
+  - A refund to the bank's reserve would need the bank to give it back,
+    bringing the bank back after issuance: excluded.
+  - A refund to the recipient address itself (as a FAR account of the same
+    key) would be lost when that address is an exchange's: excluded.
+  - A swap can fail (price, liquidity), and so can a withdrawal (a recipient
+    the token blocks, such as a blacklisted USDC address); both end as a
+    refund to the refund account. Both also cost the destination chain's
+    fee: a withdrawal of USDC to Ethereum cost 0.6 USDC on 2026-11-06, 12 %
+    of a 5 USDC banknote.
+  - The signed intent has a deadline (1Click kept confidential quotes open
+    for 3 days on 2026-11-06): if nobody submits it in time nothing moves,
+    but the card is already `SPENT`. The app saves the intent and the card
+    keeps the signature for the same digest (§5.4), so it can be submitted
+    again.
+  - The refund account is only as safe as the passkey: it lives in the
+    holder's iCloud Keychain and syncs to their other devices. Changing the
+    passkey's domain means a new passkey and a new refund account.
+  - The wallet's 1Click partner key ships inside the app, so anyone can read
+    it and use the app's 1Click quota. It moves no funds: every movement
+    needs the signature of the account it spends.
+- Cards keep the default GlobalPlatform keys: what that allows, and the TODO
+  to lock them, are in §10.1.
 - Refunds without a refund address go back to the address that paid. Paid
   from an exchange, that address is the exchange's, so the user must give
   their own. Refunds smaller than the network fee of sending them back are
   kept by the bank.
 
+### 10.1 Changing the card's code (GlobalPlatform)
+
+Installing the applet needs the card's GlobalPlatform keys (§2). Today they
+stay the default ones afterwards, so anyone with a reader can delete the
+applet or load another one. What that allows, case by case:
+
+- **Deleting the applet (a "reset").** The holder has no reason to: it
+  destroys their own money. Someone holding the card for a moment (for
+  example while checking it before accepting it) could do it as vandalism.
+  A and F are deleted with the applet, so the funds stay locked in F's account
+  for good: the value is destroyed, not stolen, like a PIN blocked on purpose (§10).
+- **Keeping the certificate, replacing the applet.** It does not work. The
+  certificate is public: anyone reads it with GET_CERT, so keeping it gives
+  nothing. What counts are the private keys A and F, which live inside the
+  applet and are deleted with it. A new applet can show the old certificate
+  and the old pubA and pubF, but it cannot sign AUTH with A, and the check
+  rejects it (§9, Exchange, step 4).
+- **A code hash in the certificate.** It would not help: a card cannot prove
+  which code it runs. The hash would be reported by the code itself, and a
+  fake applet would report the hash of the genuine one. GlobalPlatform gives
+  no way for a card to sign the hash of its installed code, so neither the
+  issuance server nor a receiver could check it. pubA already plays this
+  role: only the applet that generated A can answer AUTH.
+- **A fake applet before issuance.** A blank card whose applet uses keys the
+  attacker knows, or never becomes `SPENT`, would be certified like a genuine
+  one, and neither pubA nor a code hash would stop it. Operators prevent it:
+  before a card goes into an ATM's cassette, they wipe it (delete everything
+  on it) and install the applet themselves (§9, Card preparation). A card on
+  which the default keys do not work (someone changed them) is discarded.
+- **A second applet after issuance.** Loaded next to ours, it would exploit a
+  bug in the Java Card virtual machine to get past the firewall and read F.
+  The attacker then redeems the funds while the card still answers `ISSUED`,
+  and spends the card in person: a double spend. Only blocking code loading
+  stops it.
+
+**TODO: lock the card's code.** After installing the applet, operators replace
+the keys with random ones that are thrown away (`gp --lock`). From then on
+nobody, not even the bank, can load or delete code: this closes the second
+applet and the reset. Spent cards can then no longer be recycled by
+reinstalling the applet: add a RESET command (SPENT → EMPTY, PIN required,
+sent only after FAR confirms the redemption) to reuse them.
+
 ## 11. Issuer key: NEAR MPC (chain signatures)
 
 The certificate signature comes from the NEAR MPC network, so the issuer key
 never exists in full anywhere: no ATM, server or person holds it.
+
+**Why MPC.** The issuer key is the key that makes banknotes: whoever can sign
+with it prints money. Kept on a server (like the DEV key below), breaking into
+that one machine would be enough to forge banknotes without limit, and the
+only cure would be a new key in every wallet, which makes every banknote
+already issued suspect. With MPC:
+- The key is split among the network's independent nodes. A signature needs
+  a threshold of them to cooperate, and no node ever sees the whole key. To
+  forge banknotes an attacker would have to compromise that many nodes at the
+  same time, each run by a different operator on its own infrastructure: far
+  harder than breaking into one bank server.
+- There is nothing to steal at the bank: no key file, no backup, no laptop,
+  no employee who knows it. For certificates the issuance server holds only a
+  function-call key that can call `sign_certificate`.
+- Breaking into the issuance server gives only what the issuer contract
+  allows: the allowed denominations, up to the daily cap, in public counters.
+  Removing the minter stops it at once, and the issuer key, and so every
+  wallet, stays as it is.
+- The issuer key is public and checkable: anyone can recompute it from MPC's
+  root key (below).
 
 ```
 issuance server ──sign_certificate(card keys, amount, day)──▶ issuer contract ──sign(request, 1 yocto)──▶ MPC contract

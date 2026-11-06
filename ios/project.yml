@@ -30,6 +30,11 @@ targets:
     platform: iOS
     sources:
       - path: NearCashWallet
+    # The wallet's 1Click key and the refund passkey's domain, from the
+    # git-ignored Secrets.xcconfig (see Secrets.xcconfig.example).
+    configFiles:
+      Debug: Wallet.xcconfig
+      Release: Wallet.xcconfig
     dependencies:
       - package: P256K
         product: P256K
@@ -49,7 +54,10 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NFCReaderUsageDescription: Serve per leggere e verificare le banconote NearCash.
+        NFCReaderUsageDescription: Used to read, check and redeem NearCash banknotes.
+        # Read by AppConfig.swift; empty when Secrets.xcconfig does not set them.
+        NearCashOneClickAPIKey: $(NEARCASH_WALLET_1CLICK_API_KEY)
+        NearCashPasskeyDomain: $(NEARCASH_PASSKEY_DOMAIN)
         # iOS reports an ISO 7816 card only if it answers SELECT for one of
         # these AIDs: the NearCash applet (docs/protocol.md §3).
         com.apple.developer.nfc.readersession.iso7816.select-identifiers:
@@ -59,12 +67,19 @@ targets:
       properties:
         com.apple.developer.nfc.readersession.formats:
           - TAG
+        # The refund passkey belongs to this domain, which must list the app
+        # in its apple-app-site-association file (Secrets.xcconfig.example).
+        com.apple.developer.associated-domains:
+          - webcredentials:$(NEARCASH_PASSKEY_DOMAIN)
 
   NearCashWalletTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: NearCashWalletTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES # the test bundle needs an Info.plist to be signed
     dependencies:
       - target: NearCashWallet
 

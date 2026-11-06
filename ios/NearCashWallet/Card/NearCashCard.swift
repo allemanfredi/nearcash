@@ -24,7 +24,7 @@ struct AuthResponse: Equatable {
 }
 
 /// Client for the NearCash applet: one method per command the wallet needs
-/// (protocol.md §5). Every call sends real APDUs through a `CardTransport`,
+/// (protocol.md §5): checking, taking over and redeeming a banknote. Every call sends real APDUs through a `CardTransport`,
 /// so the same code drives an NFC card or the tests' recorded transcripts.
 ///
 /// The byte layout of every APDU is identical to the TypeScript client
@@ -104,6 +104,21 @@ struct NearCashCard {
         data.append(UInt8(newPin.utf8.count))
         data.append(contentsOf: newPin.utf8)
         _ = try await command("CHANGE_PIN", .changePin, data: data)
+    }
+
+    /// SIGN_ONCE (protocol.md §5.4): the card signs `digest` with key F and
+    /// becomes SPENT in the same atomic step. On a card that is already SPENT
+    /// only the very same digest is answered, with the stored signature:
+    /// this is how an interrupted redemption is resumed.
+    ///
+    /// - Returns: the DER signature, possibly high-s.
+    func signOnce(pin: String, digest: Data) async throws -> Data {
+        precondition(NearCashProtocol.isValidPin(pin), "PIN must be 4–8 digits")
+        precondition(digest.count == 32, "SIGN_ONCE signs a 32-byte digest")
+        var data = Data([UInt8(pin.utf8.count)])
+        data.append(contentsOf: pin.utf8)
+        data.append(digest)
+        return try await command("SIGN_ONCE", .signOnce, data: data, expectedLength: 256)
     }
 
     // MARK: - Plumbing
