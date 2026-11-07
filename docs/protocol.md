@@ -475,7 +475,13 @@ issuance server ──sign_certificate(card keys, amount, day)──▶ issuer c
 Testnet deployment (2026-11-03): issuer contract `nearbank-issuer-56b0c6.testnet`,
 path `nearbank-certificates-v1`, minter `nearbank-mint-56b0c6.testnet`, issuer key
 `03e38503df708b9f40ee5a6f7669732229bf1feafe4492ccac028e7e2b778337f8`;
-5 / 10 / 20 USDC (placeholder token ids, to replace with FAR's), cap 1000 USDC a day.
+1 / 5 / 10 / 20 / 50 / 100 / 500 / 1,000 / 10,000 USDC (placeholder token ids, to
+replace with FAR's), and no daily cap for the hackathon (the cap set to the largest
+u128). Both set on 2026-11-06 with
+`pnpm issuer:admin set-denominations 1,5,10,20,50,100,500,1000,10000` and
+`pnpm issuer:admin set-daily-cap none`. With a cap, the issuance server would need
+to check it before funding a card: it funds first and certifies after, so a
+refused certificate would leave the value on a card that can never sign.
 These testnet accounts were created before the project was renamed NearCash and keep their on-chain names: renaming them means a new issuer key (redeploy + new key in the wallets).
 
 **Demos without MPC** (`NEARCASH_SKIP_MPC=true`, `pnpm atm:demo --skip-mpc`):
