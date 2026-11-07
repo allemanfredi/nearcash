@@ -4,6 +4,13 @@ import { type Setup, PAYMENT_OPTIONS } from '@nearcash/kiosk-api';
 import { CASSETTE, type Cassette } from '../hardware/hardware.ports.ts';
 import { type AtmIssuanceApi, ISSUANCE } from '../issuance/issuance.port.ts';
 
+/** "10000.5" → "10,000.5": commas between thousands of the whole part, as the screen (English) writes them. */
+export function groupThousands(amount: string): string {
+  const [whole, fraction] = amount.split('.');
+  const grouped = whole!.replace(/\B(?=(\d{3})+$)/g, ',');
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
+
 /** How long the banknotes on sale are cached (the issuer contract rarely changes). */
 const CACHE_MS = 60_000;
 
@@ -30,10 +37,10 @@ export class CatalogService {
     if (this.cached && Date.now() - this.cached.readAt < CACHE_MS) return this.cached.value;
     const [banknotes, info] = await Promise.all([this.issuance.saleDenominations(), this.issuance.info()]);
     const value = {
-      banknotes: banknotes.map((banknote) => ({
-        amount: banknote.amount.toString(),
-        label: `${formatAmount(banknote.amount, banknote.decimals)} ${banknote.symbol}`,
-      })),
+      banknotes: banknotes.map((banknote) => {
+        const value = groupThousands(formatAmount(banknote.amount, banknote.decimals));
+        return { amount: banknote.amount.toString(), value, symbol: banknote.symbol, label: `${value} ${banknote.symbol}` };
+      }),
       paymentOptions: PAYMENT_OPTIONS,
       simulatedPayments: info.simulatedPayments,
     };

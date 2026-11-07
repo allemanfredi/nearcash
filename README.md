@@ -123,6 +123,6 @@ here with all of them, and prints the address to open on the iPhone, its
 pairing QR code and the command to reach the Pi's session. The Pi's password
 is asked only the first time.
 
-Until the NFC reader and the cards are connected to the Pi, the kiosk shows
-"Out of service": the ATM never takes a payment it can't turn into a
-banknote.
+The ATM sells only while a blank banknote is on the NFC reader; otherwise the
+kiosk shows "Out of service": the ATM never takes a payment it can't turn
+into a banknote. `pnpm atm:reader` checks the reader and the card on it.

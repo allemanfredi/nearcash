@@ -43,7 +43,7 @@ describe('what the screen offers', () => {
   it('lists the banknotes from the issuance server and the payment options', async () => {
     const { issuance, cassette } = setup();
     const view = await new CatalogService(issuance, cassette).setup();
-    expect(view.banknotes).toEqual([{ amount: BANKNOTE.amount.toString(), label: '0.01 ETH' }]);
+    expect(view.banknotes).toEqual([{ amount: BANKNOTE.amount.toString(), value: '0.01', symbol: 'ETH', label: '0.01 ETH' }]);
     expect(view.paymentOptions.map((option) => option.id)).toContain('usdc-base');
     expect(view.simulatedPayments).toBe(true);
     expect(view.outOfService).toBeNull();

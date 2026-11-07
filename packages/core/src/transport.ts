@@ -4,8 +4,8 @@
  * The protocol code (card.ts) only needs "send this APDU, give me the
  * answer". Each environment provides that differently:
  *  - the iOS wallet app: Core NFC (in Swift, ios/NearCashWallet/Card);
- *  - the ATM: the NFC reader on the Raspberry Pi (to be written once the
- *    reader and the cards are here).
+ *  - the ATM: the NFC reader on the Raspberry Pi, through PC/SC
+ *    (apps/atm/src/server/features/hardware/pcsc-readers.ts).
  */
 
 export interface CardTransport {

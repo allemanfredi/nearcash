@@ -8,6 +8,12 @@
  *   pnpm issuer:admin remove-minter <account>    owner: revoke it (immediate)
  *   pnpm issuer:admin minter-key <account>       give that account a key limited to
  *                                                sign_certificate; prints its .env.issuance lines
+ *   pnpm issuer:admin set-denominations 1,5,10,20
+ *                                                owner: the banknotes on sale, in whole tokens
+ *                                                (converted with the contract's decimals)
+ *   pnpm issuer:admin set-daily-cap 100000       owner: the most value certified in one day,
+ *                                                in whole tokens; "none" lifts it (the largest
+ *                                                value the contract can hold)
  *
  * Environment: NEARCASH_ISSUER_CONTRACT (required), NEARCASH_NETWORK
  * (default testnet), NEARCASH_NEAR_RPC, NEARCASH_MPC_CONTRACT,
@@ -96,7 +102,57 @@ switch (command) {
     console.log(`NEARCASH_ISSUANCE_PRIVATE_KEY=${key.toString()}`);
     break;
   }
+  case 'set-denominations': {
+    if (!target) throw new Error('usage: set-denominations <amounts in whole tokens, comma-separated, e.g. 1,5,10,20>');
+    const { decimals, symbol } = (await provider.callFunction<{ decimals: number; symbol: string }>({
+      contractId: issuerContractId,
+      method: 'config',
+      args: {},
+    }))!;
+    const denominations = target.split(',').map((text) => toSmallestUnits(text.trim(), decimals));
+    await (await owner()).callFunction({
+      contractId: issuerContractId,
+      methodName: 'set_denominations',
+      args: { denominations: denominations.map(String) },
+      gas: GAS,
+    });
+    const config = await provider.callFunction<{ denominations: string[] }>({ contractId: issuerContractId, method: 'config', args: {} });
+    console.log(`denominations now (${symbol}, ${decimals} decimals): ${JSON.stringify(config!.denominations)}`);
+    break;
+  }
+  case 'set-daily-cap': {
+    if (!target) throw new Error('usage: set-daily-cap <amount in whole tokens, e.g. 100000, or "none">');
+    const { decimals, symbol } = (await provider.callFunction<{ decimals: number; symbol: string }>({
+      contractId: issuerContractId,
+      method: 'config',
+      args: {},
+    }))!;
+    // The contract always has a cap; "none" sets it to the largest u128, which no day can reach.
+    const cap = target.trim() === 'none' ? 2n ** 128n - 1n : toSmallestUnits(target.trim(), decimals);
+    await (await owner()).callFunction({
+      contractId: issuerContractId,
+      methodName: 'set_daily_value_cap',
+      args: { cap: cap.toString() },
+      gas: GAS,
+    });
+    const config = await provider.callFunction<{ daily_value_cap: string }>({ contractId: issuerContractId, method: 'config', args: {} });
+    console.log(`daily value cap now ${config!.daily_value_cap} (${target === 'none' ? 'no cap' : `${target} ${symbol}`})`);
+    break;
+  }
   default:
-    console.error('commands: public-key | stats | add-minter <account> | remove-minter <account> | minter-key <account>');
+    console.error(
+      'commands: public-key | stats | add-minter <account> | remove-minter <account> | minter-key <account> | set-denominations <1,5,10,20> | set-daily-cap <100000>',
+    );
     process.exit(1);
+}
+
+/** "1.5" tokens with 6 decimals → 1500000n. Refuses more decimals than the token has. */
+function toSmallestUnits(text: string, decimals: number): bigint {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(text);
+  if (!match) throw new Error(`not an amount: "${text}"`);
+  const [, whole, fraction = ''] = match;
+  if (fraction.length > decimals) throw new Error(`"${text}" has more than ${decimals} decimals`);
+  const units = BigInt(whole! + fraction.padEnd(decimals, '0'));
+  if (units === 0n) throw new Error('a banknote must be worth more than 0');
+  return units;
 }

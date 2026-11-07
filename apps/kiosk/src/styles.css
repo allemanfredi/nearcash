@@ -288,6 +288,51 @@ button:disabled {
   line-height: 1;
 }
 
+/* One per row: "5 USDC" in one line, the chip pushed to the right. */
+.note-button__symbol {
+  margin-left: 0.25em;
+  margin-right: auto;
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1;
+}
+
+/* Many banknotes: three per row, the value large and the symbol under it. */
+.notes--grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.notes--grid .note-button {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-height: 92px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.notes--grid .note-button__value {
+  font-size: 28px;
+}
+
+.notes--grid .note-button__symbol {
+  margin: 4px 0 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.notes--grid .note-button__chip {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 17px;
+  border-radius: 4px;
+}
+
 .note-button__chip {
   width: 44px;
   height: 34px;

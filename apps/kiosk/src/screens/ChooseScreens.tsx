@@ -26,10 +26,18 @@ export function AmountScreen({ setup, onChoose }: { setup: Setup; onChoose: (ban
     >
       {setup.simulatedPayments && <SimulatedBadge />}
       <p className="label">Choose a banknote</p>
-      <div className="notes">
+      {/* Up to three banknotes: one per row. More: a grid of three per row, so all fit on the screen. */}
+      <div className={setup.banknotes.length > 3 ? 'notes notes--grid' : 'notes'}>
         {setup.banknotes.map((banknote) => (
-          <button key={banknote.amount} type="button" className="note-button" onClick={() => onChoose(banknote)}>
-            <span className="note-button__value">{banknote.label}</span>
+          <button
+            key={banknote.amount}
+            type="button"
+            className="note-button"
+            aria-label={banknote.label}
+            onClick={() => onChoose(banknote)}
+          >
+            <span className="note-button__value">{banknote.value}</span>
+            <span className="note-button__symbol">{banknote.symbol}</span>
             <span className="note-button__chip" aria-hidden="true" />
           </button>
         ))}

@@ -25,6 +25,9 @@ importers:
       '@nestjs/platform-express':
         specifier: 12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+      pcsc-mini:
+        specifier: 0.1.3
+        version: 0.1.3
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -938,6 +941,82 @@ packages:
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
+
+  '@pcsc-mini/linux-aarch64-gnu@0.1.3':
+    resolution: {integrity: sha512-e6YmBGpoWnjFm6zODaitapiAzUxyvwoZ4mFmqWxJ+0dGPYMssgUax1pZ/Fe+Np/O196BZKUsKBeS2475zoxLOg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pcsc-mini/linux-aarch64-musl@0.1.3':
+    resolution: {integrity: sha512-9kA4I5SqU66L+NwfX949hGoKBpmeOU6pBkFQsHtbcxlIepb9Y2RlJQrictCl3yR6q6lTBQq8q3Fxx+FkRBntAA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@pcsc-mini/linux-x86-gnu@0.1.3':
+    resolution: {integrity: sha512-v1biZWpK/SqV/q9GMJK3Z/uHQB7r6Qq+AiZyl05nnxUSmWkYvHu0QDcTILLvPROl9ob/ixf2vVLzo+E6FvJ+UQ==}
+    cpu: [ia32]
+    os: [linux]
+    libc: [glibc]
+
+  '@pcsc-mini/linux-x86-musl@0.1.3':
+    resolution: {integrity: sha512-zJPGFiH/fE2FEfErVF4McDalI77JhnntdN42Tjw55C3tG7JtgZL+V977G4YBsdkaAD/DP5fbN5ra3RWKFChg2A==}
+    cpu: [ia32]
+    os: [linux]
+    libc: [musl]
+
+  '@pcsc-mini/linux-x86_64-gnu@0.1.3':
+    resolution: {integrity: sha512-TMuuoSO93iIqF8Fdus32jH/VFNYyrjZICEiOduDqxlGETybU+eP3DTtXm9eQxRpxjXRcugiSvSAzFuqY3JSbpg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pcsc-mini/linux-x86_64-musl@0.1.3':
+    resolution: {integrity: sha512-KBxPeqlZ3Zz8kw2DSdtpBkfYS3R85NzOBXKdjBiMePwg2V3S7EuC/EWBq2S4ti/NRpQ6D17HULl63fuUAGl+gw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@pcsc-mini/macos-aarch64@0.1.3':
+    resolution: {integrity: sha512-/lcLbbg8K4Lfh57TWxaw5pRsVyKWSUPZOZI3m9yfr+2hoVj4PLAGNiYcAS4Tu3x2cpQvNg1Qb1k5aLIudIIR1Q==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pcsc-mini/macos-x86_64@0.1.3':
+    resolution: {integrity: sha512-KcCEevrC00PsEmgypqyr83eFcFy7Pdyn1FHUDhhx/5+SprDU1NlIufYHbeP7LqgCeofB24W3P3Lc+d10Yr4dIA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@pcsc-mini/windows-aarch64-bun@0.1.3':
+    resolution: {integrity: sha512-DdTjHNQo/oSEhSdyegdQr4zJUEgJiTmBHr+mtdcwgzdEc20AhhWnOHnR4pgR8II7Mc4KirF1hWwZHSTgHzSDWA==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pcsc-mini/windows-aarch64-electron@0.1.3':
+    resolution: {integrity: sha512-aCzUcoP+vbc1lGHFyIWV6POf1bP8RfV8WFUHweXJ5KRvNKFbnU2HChKM+to+xM6Stp7wh4DJkRJcFJ9dl4xHQg==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pcsc-mini/windows-aarch64-node@0.1.3':
+    resolution: {integrity: sha512-rllYx8QqsOOeNIK0WLVlmVLMIpu8nTOtw8QzRGFdmqHlutqbwL2/j4TDF48AfdaYsuVb2PpmZiPQeHJnDHhvIw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pcsc-mini/windows-x86_64-bun@0.1.3':
+    resolution: {integrity: sha512-/qwi1p87j6pQh2nLM9M4nI0PdoHA3VjVRbXU9ZWKkSQU6NdJ+Rikih8L0af0KMX7raU6Dq/bBe1oxPfD8jXZIA==}
+    cpu: [x64]
+    os: [win32]
+
+  '@pcsc-mini/windows-x86_64-electron@0.1.3':
+    resolution: {integrity: sha512-pV2bjorcb1NtCPFOnrj2kC7ulMivhI0kY5pYb/qc13seTtXNfjKHCyktZMF9mMxjMgELheMP80T2eLnkCWhacA==}
+    cpu: [x64]
+    os: [win32]
+
+  '@pcsc-mini/windows-x86_64-node@0.1.3':
+    resolution: {integrity: sha512-Yaw8QgtQhqWlYiY4XUh4NPVm6j5DkonYqXj5VoQW7z7tDJXd9yE3XCdKW02eOTBqTJa45nDyydxyBRfuWwyjsA==}
+    cpu: [x64]
+    os: [win32]
 
   '@protobuf-ts/grpcweb-transport@2.11.1':
     resolution: {integrity: sha512-1W4utDdvOB+RHMFQ0soL4JdnxjXV+ddeGIUg08DvZrA8Ms6k5NN6GBFU2oHZdTOcJVpPrDJ02RJlqtaoCMNBtw==}
@@ -3023,6 +3102,10 @@ packages:
     resolution: {integrity: sha512-nS4mvFgVwUrecPTRdpdseM2fwpdfnX0/HibA8DgBRQtihUAzHQYJFU2l+OlEtiXtpqkrMvCPDwyXMUnASDt6Qw==}
     engines: {node: '>= 0.10'}
 
+  pcsc-mini@0.1.3:
+    resolution: {integrity: sha512-9PPIj0YbMxU0qFtp32Gq5jsAnLloOzMdFiiIjAgh07zGWOZv194IIVTulC354RDX5YNc14fwpkxS3oIS0iScWw==}
+    engines: {node: '>=16'}
+
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
 
@@ -4858,6 +4941,48 @@ snapshots:
       - utf-8-validate
 
   '@oxc-project/types@0.156.0': {}
+
+  '@pcsc-mini/linux-aarch64-gnu@0.1.3':
+    optional: true
+
+  '@pcsc-mini/linux-aarch64-musl@0.1.3':
+    optional: true
+
+  '@pcsc-mini/linux-x86-gnu@0.1.3':
+    optional: true
+
+  '@pcsc-mini/linux-x86-musl@0.1.3':
+    optional: true
+
+  '@pcsc-mini/linux-x86_64-gnu@0.1.3':
+    optional: true
+
+  '@pcsc-mini/linux-x86_64-musl@0.1.3':
+    optional: true
+
+  '@pcsc-mini/macos-aarch64@0.1.3':
+    optional: true
+
+  '@pcsc-mini/macos-x86_64@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-aarch64-bun@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-aarch64-electron@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-aarch64-node@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-x86_64-bun@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-x86_64-electron@0.1.3':
+    optional: true
+
+  '@pcsc-mini/windows-x86_64-node@0.1.3':
+    optional: true
 
   '@protobuf-ts/grpcweb-transport@2.11.1':
     dependencies:
@@ -7277,6 +7402,23 @@ snapshots:
       safe-buffer: 5.2.1
       sha.js: 2.4.12
       to-buffer: 1.2.2
+
+  pcsc-mini@0.1.3:
+    optionalDependencies:
+      '@pcsc-mini/linux-aarch64-gnu': 0.1.3
+      '@pcsc-mini/linux-aarch64-musl': 0.1.3
+      '@pcsc-mini/linux-x86-gnu': 0.1.3
+      '@pcsc-mini/linux-x86-musl': 0.1.3
+      '@pcsc-mini/linux-x86_64-gnu': 0.1.3
+      '@pcsc-mini/linux-x86_64-musl': 0.1.3
+      '@pcsc-mini/macos-aarch64': 0.1.3
+      '@pcsc-mini/macos-x86_64': 0.1.3
+      '@pcsc-mini/windows-aarch64-bun': 0.1.3
+      '@pcsc-mini/windows-aarch64-electron': 0.1.3
+      '@pcsc-mini/windows-aarch64-node': 0.1.3
+      '@pcsc-mini/windows-x86_64-bun': 0.1.3
+      '@pcsc-mini/windows-x86_64-electron': 0.1.3
+      '@pcsc-mini/windows-x86_64-node': 0.1.3
 
   pend@1.2.0: {}
 

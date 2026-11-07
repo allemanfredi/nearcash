@@ -2,8 +2,9 @@
   // The ATM server: NestJS, compiled by SWC (.swcrc), so — unlike the
   // packages Node runs directly — it may use TypeScript's legacy decorators,
   // their metadata (Nest's dependency injection reads constructor types) and
-  // constructor parameter properties. tsc only type-checks. The sale CLI
-  // (src/sale-cli.ts) runs directly with Node and uses none of these.
+  // constructor parameter properties. tsc only type-checks. The reader CLI
+  // (src/reader-cli.ts) runs directly with Node: it, and what it imports,
+  // uses none of these.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],

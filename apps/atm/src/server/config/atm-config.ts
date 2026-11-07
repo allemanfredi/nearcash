@@ -10,7 +10,10 @@
  *   NEARCASH_ATM_HOST        127.0.0.1                  only the kiosk page's server (same Pi) calls it
  *   NEARCASH_ATM_PORT        8792
  *   NEARCASH_KIOSK_KEY       pairing key the iPhone must send; empty: no check (development)
- *   NEARCASH_CASSETTE        none                       no NFC reader yet: the ATM is out of service
+ *   NEARCASH_CASSETTE        none                       none: no reader, the ATM is out of service
+ *                                                       pcsc: the NFC reader (PC/SC) in front of the blank cards
+ *   NEARCASH_READER          part of the NFC reader's name; needed only when several
+ *                            PC/SC readers are connected (a YubiKey counts as one)
  *   NEARCASH_DISPENSER       sim                        (the Raspberry's dispenser motor comes next)
  */
 import { existsSync } from 'node:fs';
@@ -31,8 +34,8 @@ export type AtmConfig = {
   http: { host: string; port: number };
   /** When set, the kiosk API answers only a screen that sends it (X-Kiosk-Key). */
   kioskKey: string | undefined;
-  /** No NFC reader driver yet (the reader and the cards are on their way). */
-  cassette: { kind: 'none' };
+  /** none: no reader (out of service); pcsc: the NFC reader in front of the blank cards. */
+  cassette: { kind: 'none' } | { kind: 'pcsc'; readerName: string | undefined };
   dispenser: { kind: 'sim' };
   /** How often a sale's payment is asked to the issuance server. */
   pollMs: number;
@@ -56,7 +59,9 @@ export function loadAtmEnvironment(): NodeJS.ProcessEnv {
 
 export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
   const cassette = env.NEARCASH_CASSETTE ?? 'none';
-  if (cassette !== 'none') throw new ConfigurationError(`NEARCASH_CASSETTE=${cassette}: not available yet (only "none", no reader)`);
+  if (cassette !== 'none' && cassette !== 'pcsc') {
+    throw new ConfigurationError(`NEARCASH_CASSETTE=${cassette}: must be "pcsc" (the NFC reader) or "none"`);
+  }
   const dispenser = env.NEARCASH_DISPENSER ?? 'sim';
   if (dispenser !== 'sim') throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: not available yet (only "sim")`);
 
@@ -71,7 +76,7 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
       port: Number(env.NEARCASH_ATM_PORT ?? 8792),
     },
     kioskKey: env.NEARCASH_KIOSK_KEY || undefined,
-    cassette: { kind: 'none' },
+    cassette: cassette === 'pcsc' ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined } : { kind: 'none' },
     dispenser: { kind: 'sim' },
     pollMs: 3_000,
     graceMs: 15 * 60_000,

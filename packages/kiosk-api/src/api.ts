@@ -24,8 +24,12 @@ export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 8;
 
 export type Setup = {
-  /** Banknotes on sale; `amount` is in the token's smallest unit. */
-  banknotes: { amount: string; label: string }[];
+  /**
+   * Banknotes on sale. `amount` is in the token's smallest unit; `value` is
+   * the amount for display, thousands grouped ("10,000"); `label` is value
+   * and symbol together ("10,000 USDC").
+   */
+  banknotes: { amount: string; value: string; symbol: string; label: string }[];
   paymentOptions: readonly PaymentOption[];
   /** Development: payments are simulated and can be paid from the screen. */
   simulatedPayments: boolean;

@@ -319,7 +319,7 @@ fi
   echo "NEARCASH_ATM_HOST=127.0.0.1"
   echo "NEARCASH_ATM_PORT=$ATM_SERVER_PORT"
   echo "NEARCASH_KIOSK_KEY=$KIOSK_KEY"
-  echo "NEARCASH_CASSETTE=none   # no NFC reader yet: the kiosk says out of service"
+  echo "NEARCASH_CASSETTE=pcsc   # the NFC reader; out of service until a blank card is on it"
   echo "NEARCASH_DISPENSER=sim"
   echo "# kiosk page (apps/kiosk)"
   echo "NEARCASH_KIOSK_HOST=0.0.0.0"

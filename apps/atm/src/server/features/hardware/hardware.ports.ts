@@ -4,10 +4,9 @@
  *    server talks to the card at the reader, then the dispenser pushes it out;
  *  - the dispenser: moves the written card to the customer's tray.
  *
- * Until the NFC reader and the cards arrive, the cassette is NoCardReader
- * (the ATM is out of service) and the dispenser only logs. The Raspberry Pi
- * adapters (a PC/SC NFC reader, the dispenser motor on the GPIO pins) come
- * with the hardware.
+ * The cassette is the NFC reader (PcscCassette, NEARCASH_CASSETTE=pcsc), or
+ * none at all (NoCardReader: the ATM is out of service). The dispenser only
+ * logs until its motor on the Pi's GPIO pins is wired.
  */
 import type { NearCashCard } from '@nearcash/core';
 
