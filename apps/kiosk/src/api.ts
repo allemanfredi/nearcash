@@ -7,8 +7,14 @@ import { KIOSK_KEY_HEADER, type SessionView, type Setup, type StartRequest } fro
 const KEY_STORAGE = 'nearcash-kiosk-key';
 
 /**
- * Pairing: the operator opens the page once as …/#key=<NEARCASH_KIOSK_KEY>.
- * The key is kept in this browser and removed from the address bar.
+ * Pairing: the operator opens the page once as …/#key=<NEARCASH_KIOSK_KEY>
+ * (the pairing QR code), and the key is kept in this browser.
+ *
+ * The key stays in the address on purpose. On an iPhone, the Home Screen
+ * app (Share → Add to Home Screen) has its own storage, apart from Safari's:
+ * it saves the address as it is when added, and pairs itself from it the
+ * first time it starts. Removing the key from the address would leave the
+ * Home Screen app unpaired. (The fragment after # is never sent to a server.)
  */
 export function pairFromUrl(): void {
   const match = /(?:^#|&)key=([^&]+)/.exec(window.location.hash);
@@ -18,7 +24,6 @@ export function pairFromUrl(): void {
   } catch {
     // Storage blocked: the screen will report it is not paired.
   }
-  window.history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
 function kioskKey(): string | null {

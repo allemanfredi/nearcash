@@ -8,7 +8,9 @@
 #   - rsync (to receive the code), tmux (the ATM runs in a session on the Pi)
 #     and Avahi (so the iPhone finds the Pi as <hostname>.local),
 #   - pcscd and the CCID driver, for the NFC reader (PC/SC); PN533-based
-#     readers (ACR122U) also need the kernel's own NFC driver kept away.
+#     readers (ACR122U) also need the kernel's own NFC driver kept away,
+#   - the hardware PWM on GPIO 12 and 13, for the two servos (a line in
+#     config.txt, read at boot: the first time, the Pi must reboot).
 #
 #   atm-pi-setup.sh           install what is missing (as root)
 #   atm-pi-setup.sh --check   exit 0 if nothing is missing (any user, changes nothing)
@@ -18,8 +20,16 @@ NODE_VERSION=22.21.1   # same as the development machines
 # Keeps Linux's own NFC driver off PN533-based readers (ACR122U): it would
 # take the reader before pcscd. Harmless for other readers.
 NFC_BLACKLIST=/etc/modprobe.d/nearcash-nfc-reader.conf
+# The servos' pulses come from the Pi's hardware PWM (hardware/atm/servo_driver.py):
+# steady, so the servos hold still. This overlay gives GPIO 12 and 13 to it.
+PWM_OVERLAY='dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4'
 
 log() { printf '  [pi] %s\n' "$*"; }
+
+# The Pi's boot configuration: /boot/firmware/config.txt since Raspberry Pi OS 12, /boot/config.txt before.
+boot_config() {
+  if [ -f /boot/firmware/config.txt ]; then echo /boot/firmware/config.txt; else echo /boot/config.txt; fi
+}
 
 node_is_recent_enough() {
   command -v node >/dev/null || return 1
@@ -47,7 +57,8 @@ missing_packages() {
 }
 
 if [ "${1:-}" = "--check" ]; then
-  [ -z "$(missing_packages)" ] && node_is_recent_enough && command -v pnpm >/dev/null && [ -f "$NFC_BLACKLIST" ]
+  [ -z "$(missing_packages)" ] && node_is_recent_enough && command -v pnpm >/dev/null && [ -f "$NFC_BLACKLIST" ] \
+    && grep -qxF "$PWM_OVERLAY" "$(boot_config)"
   exit
 fi
 
@@ -76,6 +87,14 @@ if [ ! -f "$NFC_BLACKLIST" ]; then
   modprobe -r pn533_usb pn533 nfc 2>/dev/null || true
 fi
 systemctl enable --now pcscd.socket >/dev/null 2>&1 || log "warning: pcscd not running: the ATM will say the PC/SC service is not available"
+
+# ---------------------------------------------------------------- servos (hardware PWM)
+config="$(boot_config)"
+if ! grep -qxF "$PWM_OVERLAY" "$config"; then
+  log "turning on the hardware PWM on GPIO 12 and 13 for the servos ($config): reboot the Pi once (sudo reboot)"
+  # Under [all], whatever section the file ends with.
+  printf '\n%s\n%s\n%s\n' '[all]' '# Written by NearCash atm-pi-setup.sh: hardware PWM for the servos.' "$PWM_OVERLAY" >> "$config"
+fi
 
 # ---------------------------------------------------------------- Node.js
 if node_is_recent_enough; then

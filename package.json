@@ -20,6 +20,8 @@
     "atm:build": "pnpm --filter @nearcash/atm build",
     "atm:demo": "bash scripts/atm-demo.sh",
     "atm:reader": "pnpm --filter @nearcash/atm reader",
+    "atm:servos": "python3 hardware/atm/servo.py",
+    "atm:cycle": "python3 hardware/atm/cycle.py",
     "kiosk:dev": "pnpm --filter @nearcash/kiosk dev",
     "kiosk:build": "pnpm --filter @nearcash/kiosk build",
     "kiosk:preview": "pnpm --filter @nearcash/kiosk preview",

@@ -330,7 +330,7 @@ fi
     echo "NEARCASH_KIOSK_TLS_KEY=$PI_HOME/$REMOTE_DIR/.atm-tls/atm-key.pem"
   fi
 } | pi "umask 077 && cat > ~/$REMOTE_DIR/.env.atm"
-info "issuance server at $LAPTOP_ADDRESS, kiosk on $SCHEME://$PI_HOSTNAME.local:$KIOSK_PORT"
+info "issuance server at $LAPTOP_ADDRESS, kiosk on $SCHEME://$PI_ADDRESS:$KIOSK_PORT"
 
 # ============================================================== the ATM's session on the Pi
 
@@ -356,7 +356,11 @@ EOF
   chmod 700 "$1"
 }
 
-KIOSK_URL="$SCHEME://$PI_HOSTNAME.local:$KIOSK_PORT"
+# The kiosk by the Pi's IP on the local network, not by <hostname>.local: an iPhone
+# doesn't always find a .local name (some routers block mDNS), an IP always works.
+# The certificate covers both. Give the Pi a fixed IP in the router: the iPhone's
+# Home Screen icon keeps this address.
+KIOSK_URL="$SCHEME://$PI_ADDRESS:$KIOSK_PORT"
 PAIRING_URL="$KIOSK_URL/#key=$KIOSK_KEY"
 PORT_OPTION=""
 [ "$PI_SSH_PORT" = 22 ] || PORT_OPTION="-p $PI_SSH_PORT "
@@ -419,7 +423,7 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
 {
   echo "NearCash ATM demo"
   echo
-  echo "  Kiosk (iPhone)     $KIOSK_URL    or    $SCHEME://$PI_ADDRESS:$KIOSK_PORT"
+  echo "  Kiosk (iPhone)     $KIOSK_URL    or    $SCHEME://$PI_HOSTNAME.local:$KIOSK_PORT"
   echo "  Website            http://localhost:$WEBSITE_PORT    ·    http://$LAPTOP_ADDRESS:$WEBSITE_PORT"
   echo "  Issuance server    http://$LAPTOP_ADDRESS:$ISSUANCE_PORT   (configuration: .env.issuance)"
   echo "  Certificates       $CERTIFICATES"
@@ -438,10 +442,12 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   fi
   echo "  2. Pair the screen: scan the pairing QR code with the Camera app. It scans best"
   echo "     as an image:   open .atm-demo/pairing-qr.png"
-  echo "     (it is also drawn below, and in the tmux session's window \"info\": Ctrl-b 1), or open"
+  echo "     (it is also drawn below, and in the tmux session's window \"info\": Ctrl-b 1; the"
+  echo "     terminal needs about 90 × 45 for it, Cmd - makes the font smaller), or open"
   echo "       $PAIRING_URL"
-  echo "  3. Share → Add to Home Screen, open it from there (full screen), and lock it with"
-  echo "     Guided Access (Settings → Accessibility → Guided Access). Turn off Auto-Lock."
+  echo "  3. On the page the QR code opened: Share → Add to Home Screen (its address keeps the"
+  echo "     key, so the Home Screen app pairs itself), open it from there (full screen), and lock"
+  echo "     it with Guided Access (Settings → Accessibility → Guided Access). Turn off Auto-Lock."
   echo
   echo "tmux: Ctrl-b and an arrow moves between panes · Ctrl-b 0 / 1 switches windows ·"
   echo "      Ctrl-b d leaves (everything keeps running) · tmux attach -t $SESSION comes back ·"
@@ -453,20 +459,34 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
 } >"$DEMO_DIR/info.txt"
 chmod 600 "$DEMO_DIR/info.txt"
 # The QR code of the pairing address, twice (qrcode is a dependency of apps/kiosk):
-#   pairing-qr.txt   drawn with text characters, for the terminal
-#   pairing-qr.png   an image: a terminal's line spacing, font and colours can
-#                    distort the text one until a phone can't read it; the image
-#                    (large modules, white quiet zone) always scans
+#   pairing-qr.png   an image (large modules, white quiet zone): it always scans
+#   pairing-qr.txt   for the terminal. Each module is two blank cells painted with a
+#                    background colour (256-colour black 16 and white 231): a background
+#                    fills the whole cell, the space between lines included, so the
+#                    modules are solid squares whatever the font. Block characters
+#                    (▀ ▄ █) leave gaps between the lines, and the iPhone's camera
+#                    doesn't find the code. It needs a window (size + 8) × 2 columns
+#                    wide and size + 8 lines high: about 90 × 45 for this address.
 (cd "$ROOT/apps/kiosk" && node -e '
   const QRCode = require("qrcode");
   const [url, imageFile] = process.argv.slice(1);
   QRCode.toFile(imageFile, url, { width: 720, margin: 4 }, (error) => {
     if (error) throw error;
   });
-  QRCode.toString(url, { type: "terminal", small: true }, (error, text) => {
-    if (error) throw error;
-    process.stdout.write(text);
-  });
+  const { modules } = QRCode.create(url, { errorCorrectionLevel: "M" });
+  const quiet = 4;                       // the standard light margin round the code, in modules
+  const dark = "\x1b[48;5;16m  ";        // a dark module: two cells on a black background
+  const light = "\x1b[48;5;231m  ";      // a light module: two cells on a white background
+  const lines = [];
+  for (let row = -quiet; row < modules.size + quiet; row++) {
+    let line = "";
+    for (let column = -quiet; column < modules.size + quiet; column++) {
+      const inside = row >= 0 && column >= 0 && row < modules.size && column < modules.size;
+      line += inside && modules.get(row, column) ? dark : light;
+    }
+    lines.push(line + "\x1b[0m");
+  }
+  process.stdout.write(lines.join("\n") + "\n");
 ' "$PAIRING_URL" "$DEMO_DIR/pairing-qr.png") >"$DEMO_DIR/pairing-qr.txt"
 chmod 600 "$DEMO_DIR/pairing-qr.txt" "$DEMO_DIR/pairing-qr.png"
 cat >"$LOCAL_RUN/info.sh" <<EOF
