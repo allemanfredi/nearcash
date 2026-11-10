@@ -4,14 +4,22 @@
  *    server talks to the card at the reader, then the dispenser pushes it out;
  *  - the dispenser: moves the written card to the customer's tray.
  *
- * The cassette is the NFC reader (PcscCassette, NEARCASH_CASSETTE=pcsc), or
- * none at all (NoCardReader: the ATM is out of service). The dispenser only
- * logs until its motor on the Pi's GPIO pins is wired.
+ * The cassette is the NFC reader (PcscCassette, NEARCASH_CASSETTE=pcsc), the
+ * printed dummy reader (DummyReader, NEARCASH_CASSETTE=dummy: no chip, the
+ * card comes out blank), or none at all (NoCardReader: the ATM is out of
+ * service). The dispenser is the two servos (ServoDispenser,
+ * NEARCASH_DISPENSER=servos), or only logs (SimulatedDispenser).
  */
 import type { NearCashCard } from '@nearcash/core';
 
 export interface Cassette {
   readonly name: string;
+  /**
+   * True for the printed dummy reader: it holds a card but has no contacts,
+   * so nothing can be written. The sale then issues nothing and hands the
+   * card out blank (SaleSessionService), and nextBlankCard is never asked.
+   */
+  readonly dummy: boolean;
   /**
    * Why no banknote can be made right now (no reader, no blank cards…), or
    * null when it can. Asked before a sale starts: the ATM never takes a
@@ -24,7 +32,7 @@ export interface Cassette {
 
 export interface Dispenser {
   readonly name: string;
-  /** Pushes the card at the reader out to the tray. */
+  /** Hands the card out: resolves once the customer can take it. */
   dispense(): Promise<void>;
 }
 

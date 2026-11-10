@@ -118,6 +118,8 @@ export class FakeIssuance implements AtmIssuanceApi {
 /** Hands out cards from `next`, or fails when there is none; `unavailable` puts the ATM out of service. */
 export class CountingCassette implements Cassette {
   readonly name = 'test cassette';
+  /** true: behaves as the printed dummy reader (nothing issued, the card handed out blank). */
+  dummy = false;
   taken = 0;
   next: (() => Promise<NearCashCard>) | undefined;
   unavailable: string | null = null;
@@ -136,7 +138,10 @@ export class CountingCassette implements Cassette {
 export class CountingDispenser implements Dispenser {
   readonly name = 'test dispenser';
   dispensed = 0;
+  /** When set, dispense() fails with it (e.g. a servo that can't be driven). */
+  failure: Error | undefined;
   async dispense(): Promise<void> {
+    if (this.failure) throw this.failure;
     this.dispensed += 1;
   }
 }

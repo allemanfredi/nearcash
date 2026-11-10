@@ -233,6 +233,7 @@ describe('cassette configuration', () => {
       kind: 'pcsc',
       readerName: 'ACR122',
     });
+    expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'dummy' }).cassette).toEqual({ kind: 'dummy' });
     expect(() => atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'usb' })).toThrow(/must be "pcsc"/);
   });
 });

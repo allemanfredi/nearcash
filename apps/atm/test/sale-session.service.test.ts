@@ -160,6 +160,51 @@ describe('a sale that ends without a banknote', () => {
   });
 });
 
+describe('the dummy reader (testing the sale and the mechanics before the NFC reader arrives)', () => {
+  it('the screen is told, and the ATM sells', async () => {
+    const { issuance, cassette } = setup();
+    cassette.dummy = true;
+    const view = await new CatalogService(issuance, cassette).setup();
+    expect(view.dummyReader).toBe(true);
+    expect(view.outOfService).toBeNull();
+  });
+
+  it('paid: nothing is issued and the card is handed out blank; the sale stays PAID at the issuance server', async () => {
+    const { sessions, issuance, cassette, dispenser, log } = setup();
+    cassette.dummy = true;
+    await sessions.start(REQUEST);
+    await sessions.simulatePayment();
+    await waitUntil(() => sessions.view()?.stage === 'dispensed');
+    expect(cassette.taken).toBe(0); // no card is asked for: there is no chip to talk to
+    expect(issuance.issued).toBe(0); // no funding, no certificate
+    expect(issuance.sales.get(issuance.firstSaleId())?.status).toBe('PAID');
+    expect(dispenser.dispensed).toBe(1);
+    expect(log.includes('DUMMY READER')).toBe(true);
+    expect(log.includes('no money moved')).toBe(true);
+  });
+
+  it('real payments: the operator is told to refund the money, which stays in the reserve', async () => {
+    const { sessions, issuance, cassette, log } = setup();
+    cassette.dummy = true;
+    issuance.simulatedPayments = false;
+    await sessions.start(REQUEST);
+    issuance.setStatus(issuance.firstSaleId(), 'PAID');
+    await waitUntil(() => sessions.view()?.stage === 'dispensed');
+    expect(log.includes('OPERATOR: the sale stays PAID at the issuance server, refund')).toBe(true);
+  });
+
+  it('the servos fail: failed, with their reason, for the operator', async () => {
+    const { sessions, cassette, dispenser, log } = setup();
+    cassette.dummy = true;
+    dispenser.failure = new Error('the servos stopped before the card was out (no PWM)');
+    await sessions.start(REQUEST);
+    await sessions.simulatePayment();
+    await waitUntil(() => sessions.view()?.stage === 'failed');
+    expect(sessions.view()?.problem).toMatch(/no PWM/);
+    expect(log.includes('OPERATOR')).toBe(true);
+  });
+});
+
 describe('simulated payments', () => {
   it('are refused when the issuance server takes real payments', async () => {
     const { sessions, issuance } = setup();

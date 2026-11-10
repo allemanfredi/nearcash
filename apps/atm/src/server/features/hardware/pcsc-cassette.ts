@@ -14,6 +14,7 @@ import type { PcscReaders } from './pcsc-readers.ts';
  */
 export class PcscCassette implements Cassette {
   readonly name: string;
+  readonly dummy = false;
   private readonly readers: PcscReaders;
 
   constructor(readers: PcscReaders, readerName: string | undefined) {

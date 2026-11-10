@@ -31,7 +31,7 @@
 // hopper), −Y to the front (the customer); Z = 0 is the table.
 
 /* [What to show] */
-part = "assembly"; // [assembly, section, chassis, legs_front, legs_back, channel_post, phone_shelf, phone_back, channel_floor, hopper, gate_0_9, gate_1_0, gate_1_1, gate_1_2, carriage, lever, turret, turret_strap, servo_clamp, face, test_fit, test_horn, test_reader]
+part = "assembly"; // [assembly, section, chassis, legs_front, legs_back, channel_post, phone_shelf, phone_back, channel_floor, hopper, gate_0_9, gate_1_0, gate_1_1, gate_1_2, carriage, lever, turret, turret_strap, servo_clamp, face, test_fit, test_horn, test_reader, dummy_reader, dummy_reader_lid, dummy_preview]
 // Assembly only: 0 = loading (slot towards the hopper), 180 = handing the banknote out.
 turret_angle = 0; // [0:5:180]
 // Assembly only: 0 = pusher at home, 1 = card fully in the reader.
@@ -41,6 +41,8 @@ show_hardware = true;
 card_in_reader = false;
 // Assembly only: show the phone, its shelf and its back (they hide the mechanism).
 show_phone = true;
+// Assembly only: the printed dummy reader on the turret, in place of the ACR39U.
+dummy = false;
 
 /* [Measure these on your hardware] */
 // How far a card goes into the ACR39U (85.6 minus what still sticks out).
@@ -86,6 +88,11 @@ phone_bump_t = 4.5;
 phone_bump_len = 55;
 // The screen leans back by this much.
 phone_tilt = 12;
+
+/* [The dummy reader: a printed stand-in for the ACR39U] */
+// How tightly it holds a card: how far each of its two springs reaches in past
+// the card's edge. More grip, a harder pull to take the banknote out.
+dummy_grip = 0.4; // [0:0.1:0.8]
 
 /* [Hidden] */
 $fn = 48;
@@ -1128,6 +1135,103 @@ module test_reader() {
     translate([0, len - 2, h - 1 - eps]) linear_extrude(0.6) text(str(reader_slot_bottom), size = 3, halign = "center", valign = "center", font = "Liberation Sans:style=Bold");
 }
 
+// ------------------------------------------------------------------ the dummy reader: a printed stand-in for the ACR39U
+//
+// Until the reader arrives, this takes its place on the turret, so that the
+// mechanism can be tried for real. Outside, it is the reader: it sits in the
+// turret's pocket and under the strap. Inside, a slot where the reader's is,
+// as high and as deep: a card slides in from the turret's shelf and stops at
+// card_insert_depth, as it would in the reader. Two springs at the slot's
+// sides press on the card's edges: they hold the card while the turret turns,
+// and the customer pulls it out against them, as against the reader's
+// contacts. It can't read a card, of course: the ATM server's sale won't run
+// with it, only the motion (cycle.py).
+//
+// It prints in two pieces, each as it sits, so that neither the slot's floor
+// nor its roof is a bridge: the base (the slot's floor, its end and the
+// springs) and the lid (the slot's roof), which pegs onto the base. The strap
+// holds the lid down, as it holds the reader.
+//
+//        lid ─────────────────────────────╮  ← the slot's roof, 0.45 mm over the card
+//   card ══════════════════════════╗      │
+//        base ─────────────────────╨──────╯  ← the slot's floor, level with the turret's shelf
+//         mouth                   end (card_insert_depth)
+
+dummy_floor_z = Zc - 0.2;                          // level with the turret's shelf: the card never climbs
+dummy_roof_z = Zc + card_t + 0.45;                 // the lid's underside: where the base and the lid meet
+dummy_slot_half = card_w / 2 + 0.5;
+dummy_end_y = slot_y - card_insert_depth;          // the slot's end: the card's leading edge stops here
+// The springs: thin walls standing on the bed (so nothing is printed in mid-air),
+// each joined to the base at its deep end, free at the other, in a groove that
+// goes right through the base. A ridge near the free end reaches past the card's edge.
+dummy_spring_t = 1.6;
+dummy_spring_l = 20;
+dummy_spring_gap = 0.8;                            // round the spring: room to bend, and for the slicer to keep it apart
+dummy_spring_y0 = dummy_end_y + 2;                 // its root
+dummy_groove_x = card_w / 2 - 1.1;                 // beside a spring, the floor stops here: the card's edge passes over the groove
+dummy_peg_h = 2.5;
+dummy_pegs = [for (sx = [-1, 1], y = [20, -27]) [sx * (reader_w / 2 - 3.3), reader_offset + y]];
+
+module dummy_outline(z0, z1) {
+    translate([0, reader_offset, z0]) linear_extrude(z1 - z0) rrect([reader_w, reader_l], 7);
+}
+
+// The +X spring, with its ridge: the crest, grip mm past the card's edge,
+// 4 mm before the free end, with a 4 mm ramp on each side.
+module dummy_spring(grip) {
+    x0 = dummy_slot_half;
+    y1 = dummy_spring_y0 + dummy_spring_l;
+    translate([0, 0, reader_bot_z]) linear_extrude(dummy_roof_z - 0.3 - reader_bot_z) {   // 0.3 mm under the lid: it bends freely
+        translate([x0, dummy_spring_y0 - eps]) square([dummy_spring_t, dummy_spring_l + eps]);
+        polygon([[x0 + eps, y1 - 8], [card_w / 2 - grip, y1 - 4], [x0 + eps, y1]]);
+    }
+}
+
+// The base, in place on the turret.
+module dummy_reader(grip = dummy_grip) {
+    difference() {
+        union() {
+            dummy_outline(reader_bot_z, dummy_roof_z);
+            for (p = dummy_pegs) translate([p[0], p[1], dummy_roof_z - eps]) {
+                cylinder(d = peg_d, h = dummy_peg_h - 0.5);
+                translate([0, 0, dummy_peg_h - 0.5]) cylinder(d1 = peg_d, d2 = peg_d - 1, h = 0.5);
+            }
+        }
+        // the slot, from its end out through the mouth
+        translate([-dummy_slot_half, dummy_end_y, dummy_floor_z]) cube([2 * dummy_slot_half, slot_y - dummy_end_y + 1, 10]);
+        // the mouth: its sides open out by 1.5 mm, its floor's edge is chamfered
+        for (sx = [-1, 1]) mirror([sx < 0 ? 1 : 0, 0, 0]) translate([0, 0, dummy_floor_z])
+            linear_extrude(10) polygon([[dummy_slot_half - eps, slot_y - 1.5], [dummy_slot_half + 1.5, slot_y + eps], [dummy_slot_half - eps, slot_y + eps]]);
+        translate([0, slot_y, dummy_floor_z]) rotate([45, 0, 0]) cube([2 * dummy_slot_half + 4, 0.6, 0.6], center = true);
+        // the springs' grooves, right through the base
+        for (sx = [-1, 1]) mirror([sx < 0 ? 1 : 0, 0, 0])
+            translate([dummy_groove_x, dummy_spring_y0, reader_bot_z - eps])
+                cube([dummy_slot_half + dummy_spring_t + dummy_spring_gap - dummy_groove_x, dummy_spring_l + dummy_spring_gap, 20]);
+    }
+    for (sx = [-1, 1]) mirror([sx < 0 ? 1 : 0, 0, 0]) dummy_spring(grip);
+}
+
+// The lid, in place on the turret.
+module dummy_reader_lid() {
+    difference() {
+        dummy_outline(dummy_roof_z, reader_top_z);
+        for (p = dummy_pegs) translate([p[0], p[1], dummy_roof_z - eps]) cylinder(d = peg_d + 2 * press, h = dummy_peg_h + 0.4);
+        // the mouth's roof opens upwards: a card that arrives a little high still goes in
+        translate([0, slot_y, dummy_roof_z]) rotate([45, 0, 0]) cube([2 * dummy_slot_half + 3, 1.6, 1.6], center = true);
+        // its name on top, so that it's never taken for the reader (clear of the strap), reading
+        // the right way from the mouth's side: the customer's, when the turret hands the banknote out
+        translate([0, reader_offset + 22, reader_top_z - 0.6]) linear_extrude(1) rotate(180)
+            text("DUMMY", size = 7, halign = "center", valign = "center", font = "Liberation Sans:style=Bold");
+    }
+}
+
+// For the picture: the base, the lid lifted off it, and a card halfway in.
+module dummy_preview() {
+    color([0.93, 0.93, 0.93]) dummy_reader();
+    color([0.85, 0.85, 0.85]) translate([0, 0, 18]) dummy_reader_lid();
+    card_ghost(slot_y - card_insert_depth / 2);
+}
+
 // ------------------------------------------------------------------ ghosts (not printed)
 
 module reader_ghost() {
@@ -1185,7 +1289,8 @@ module assembly() {
     rotate([0, 0, turret_angle]) {
         color(green) turret();
         color(dark) turret_strap();
-        if (show_hardware) reader_ghost();
+        if (dummy) color([0.93, 0.93, 0.93]) { dummy_reader(); dummy_reader_lid(); }
+        else if (show_hardware) reader_ghost();
         if (show_hardware && (pusher == 1 || turret_angle > 0 || card_in_reader)) card_ghost(slot_y - card_insert_depth);
     }
     if (show_hardware) {
@@ -1233,3 +1338,6 @@ else if (part == "face_brand") face_on_bed() face_brand();                      
 else if (part == "test_fit") test_fit();
 else if (part == "test_horn") test_horn();                                      // pocket on the bed side
 else if (part == "test_reader") test_reader();
+else if (part == "dummy_reader") on_bed(reader_bot_z) dummy_reader();              // as it sits: the springs stand on the bed
+else if (part == "dummy_reader_lid") on_bed(dummy_roof_z) dummy_reader_lid();      // as it sits: the slot's roof on the bed, flat
+else if (part == "dummy_preview") dummy_preview();

@@ -8,6 +8,7 @@ import type { Cassette } from './hardware.ports.ts';
  */
 export class NoCardReader implements Cassette {
   readonly name = 'no card reader connected';
+  readonly dummy = false;
   private static readonly REASON = 'no card reader is connected: no banknote can be made';
 
   async unavailableReason(): Promise<string> {

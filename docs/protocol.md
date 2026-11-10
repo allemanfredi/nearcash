@@ -493,6 +493,14 @@ it. The ATM trusts that key because it asks the issuance server
 (`GET /issuer`); the wallet app trusts it only in Debug builds. Anyone can
 forge certificates with the DEV key: demo banknotes only.
 
+**Tests without the NFC reader** (`NEARCASH_CASSETTE=dummy`,
+`pnpm atm:demo --dummy-reader`): the printed dummy reader sits in the turret.
+It has no contacts, so a paid sale skips the issuance: no card keys, no
+funding, no certificate, no PIN. The servos hand out a blank card. The sale
+stays `PAID` at the issuance server, so with real payments the money waits in
+the reserve until the operator refunds it. The kiosk says "test mode" from
+the start.
+
 ## 12. Issuance server and ATM: "the ATM doesn't print money"
 
 | | Issuance server (`apps/issuance`, one, protected) | ATM (`apps/atm` + `apps/kiosk`, many, in the street) |

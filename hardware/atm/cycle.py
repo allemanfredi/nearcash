@@ -123,19 +123,17 @@ def seconds(text):
     return value
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Runs the ATM cycle on the real servos (the reader and the issuing are sleeps).')
-    parser.add_argument('--cycles', type=int, default=1, help='how many cycles in a row (default 1)')
+def add_calibration_options(parser):
+    """The calibration and --dry-run, shared with dispense.py (which the ATM server runs for each card)."""
     parser.add_argument('--stroke', type=angle, default=STROKE, help=f'the pusher\'s full stroke, degrees from home (default {STROKE:g})')
     parser.add_argument('--pusher-reversed', action='store_true', help='the pusher\'s rest is 180° (its shaft turns clockwise from 0° to 90°)')
     parser.add_argument('--turret-in', type=angle, default=TURRET_IN, help=f'the turret\'s loading angle (default {TURRET_IN:g})')
     parser.add_argument('--turret-out', type=angle, default=TURRET_OUT, help=f'the turret\'s hand-out angle (default {TURRET_OUT:g})')
-    parser.add_argument('--issue-seconds', type=seconds, default=ISSUE_S, help=f'the sleep standing in for the issuing (default {ISSUE_S:g})')
-    parser.add_argument('--take-seconds', type=seconds, default=TAKE_S, help=f'the time to pull the banknote out (default {TAKE_S:g})')
     parser.add_argument('--dry-run', action='store_true', help='print the steps without moving the servos')
-    args = parser.parse_args()
-    if args.cycles < 1:
-        parser.error('--cycles must be 1 or more')
+
+
+def check_calibration(parser, args):
+    """Refuses a turn too short for the banknote to clear the smile (parser.error exits)."""
     # The servo turns 180° at most: with a loading angle above 0° the turret turns less than half a turn.
     # check-clearances.sh passes with the banknote at 170°: up to 10° askew it still clears the smile.
     turn = abs(args.turret_out - args.turret_in)
@@ -143,25 +141,56 @@ def parse_args():
         parser.error(f'the turret would turn only {turn:g}°: the banknote would hit the smile (170° at least)')
     if turn != 180:
         print(f'note: the turret turns {turn:g}°, not 180°: the banknote comes out {180 - turn:g}° askew')
+
+
+def open_servos(args):
+    """Both servos, each where it was left (it doesn't move) or, the first time, at rest: (turret, pusher).
+    The pusher first: two MG996R starting together can make the batteries' voltage dip."""
+    if not args.dry_run and not hardware_pwm_on():
+        print(SOFTWARE_PULSES_NOTE, file=sys.stderr)
+    pusher = Servo(GPIO['pusher'], 0, reversed_=args.pusher_reversed, dry_run=args.dry_run)
+    try:
+        time.sleep(STAGGER_S)
+        turret = Servo(GPIO['turret'], args.turret_in, dry_run=args.dry_run)
+        time.sleep(STAGGER_S)
+    except BaseException:
+        # Ctrl+C or an error before the turret started: the pusher, already started, goes limp (noted).
+        pusher.release()
+        raise
+    for servo in (pusher, turret):
+        if not args.dry_run and not servo.started_where_left:
+            print(f'note: where the {servo.name} was is not known (first run): it went straight to rest', flush=True)
+    return turret, pusher
+
+
+def release_servos(turret, pusher, args):
+    """Lets the servos that were opened go limp where they are, their angles noted for the next run."""
+    for servo in (pusher, turret):
+        if servo is not None:
+            servo.release()
+    if pusher is not None and turret is not None and not args.dry_run:
+        print(f'pusher left at {pusher.angle:g}°, turret at {turret.angle:g}°', flush=True)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Runs the ATM cycle on the real servos (the reader and the issuing are sleeps).')
+    parser.add_argument('--cycles', type=int, default=1, help='how many cycles in a row (default 1)')
+    add_calibration_options(parser)
+    parser.add_argument('--issue-seconds', type=seconds, default=ISSUE_S, help=f'the sleep standing in for the issuing (default {ISSUE_S:g})')
+    parser.add_argument('--take-seconds', type=seconds, default=TAKE_S, help=f'the time to pull the banknote out (default {TAKE_S:g})')
+    args = parser.parse_args()
+    if args.cycles < 1:
+        parser.error('--cycles must be 1 or more')
+    check_calibration(parser, args)
     return args
 
 
 def main():
     args = parse_args()
-    if not args.dry_run and not hardware_pwm_on():
-        print(SOFTWARE_PULSES_NOTE, file=sys.stderr)
 
     turret = pusher = None
     try:
-        # Each servo starts where it was left (it doesn't move), or, the first time, at rest.
-        # The pusher first: two MG996R starting together can make the batteries' voltage dip.
-        pusher = Servo(GPIO['pusher'], 0, reversed_=args.pusher_reversed, dry_run=args.dry_run)
-        time.sleep(STAGGER_S)
-        turret = Servo(GPIO['turret'], args.turret_in, dry_run=args.dry_run)
-        time.sleep(STAGGER_S)
-        for servo in (pusher, turret):
-            if not args.dry_run and not servo.started_where_left:
-                print(f'note: where the {servo.name} was is not known (first run): it went straight to rest')
+        turret, pusher = open_servos(args)
         go_to_rest(turret, pusher, args, Log())
 
         for n in range(1, args.cycles + 1):
@@ -181,11 +210,7 @@ def main():
                 print('\nlet go: the servos are limp where they are. The next run starts from there and goes to rest first.')
     finally:
         # Limp at rest (or where a second Ctrl+C or an error left them), the angle noted for the next run.
-        for servo in (pusher, turret):
-            if servo is not None:
-                servo.release()
-        if pusher is not None and turret is not None and not args.dry_run:
-            print(f'pusher left at {pusher.angle:g}°, turret at {turret.angle:g}°')
+        release_servos(turret, pusher, args)
 
 
 if __name__ == '__main__':

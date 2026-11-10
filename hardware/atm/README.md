@@ -76,7 +76,7 @@ another phone, or one in a case, set `phone_width`, `phone_thickness`,
 | Controller | Raspberry Pi 4 or 5, with its own power supply; it sits next to the ATM |
 | Cards | Blank NXP J3R180 cards (85.6 × 54 × 0.76 mm), with the applet installed |
 | Screen | An iPhone 17 Pro without a case (another phone: set its size at the top of the model), and a charging cable with a right-angle plug |
-| Filament | PETG, about 223 g: 106 g green, 117 g black |
+| Filament | PETG, about 223 g: 106 g green, 117 g black; and 35 g of white for the dummy reader, if the reader hasn't arrived yet |
 
 No glue and no metal in the structure: the parts fit with printed pegs and
 rails. The only screws are the servos' own: four hold each servo to the
@@ -105,6 +105,7 @@ plate, in its colour, with the settings (X2D 0.4 mm nozzle, 0.24 mm layers,
 | 13. Green: the reader's holder (the turret), its hub's middle open so the horn pocket's ceiling prints cleanly | 23 min | 9 g |
 | 14. Green and black: the face, with black lips round the smile and the NearCash name and logo flush in black under it (the AMS swaps the colours on nozzle 1 for its first three layers) | 32 min | 15 g |
 | **The ATM** (plates 3 and 5 to 14) | **6 h 41 min** | **215 g** |
+| 15. Test, white: the dummy reader, base and lid (only until the ACR39U arrives, see below) | 52 min | 35 g |
 
 Add a few minutes per plate for the printer's own warm-up and calibration,
 which the estimate leaves out. None of the parts needs supports. The
@@ -133,6 +134,35 @@ prints, if you want to arrange the plates yourself:
 | `face` | 1 | green, with `face_brand`, its black lips and NearCash name and logo, printed in it as one object |
 | `test_fit`, `test_reader` | 1 each | any |
 | `test_horn` | 1 | any (the horn pocket of `test_fit` alone) |
+| `dummy_reader`, `dummy_reader_lid` | 1 each | white (the dummy reader, base and lid, each printed as it sits) |
+
+### No reader yet: the dummy
+
+Until the ACR39U arrives, plate 15 stands in for it, so the whole mechanism
+can be tried. Outside it is the reader (69 × 72.2 × 14.5 mm), so it sits in
+the turret's pocket, under the strap. Inside it has the reader's slot, as high
+(`reader_slot_bottom`) and as deep (`card_insert_depth`): a card slides in
+from the turret's shelf, without climbing, and stops where it would in the
+reader. Two springs at the slot's sides press on the card's edges, as the
+reader's contacts grip it: the card stays in while the turret turns, and comes
+out with a pull.
+
+![The dummy reader, its lid lifted and a card halfway in](images/dummy-reader.png)
+
+- It prints in two pieces, each as it sits, so neither the slot's floor nor
+  its roof is printed over air: the base (the floor, the slot's end and the
+  springs, thin walls that stand on the bed) and the lid (the slot's roof),
+  which presses onto four pegs. The strap holds the lid down.
+- It reads nothing, so nothing can be written on the card. To try the motion
+  alone: `pnpm atm:cycle` (`cycle.py`, where pauses stand in for the reader).
+  To try a whole sale: `pnpm atm:demo --dummy-reader <user>@<raspberry-address>`.
+  Once paid, the ATM server drives the servos (`dispense.py`) and the card
+  comes out of the smile blank. Nothing is issued: the sale stays paid at the
+  issuance server, and with real payments the money waits in the reserve to
+  be refunded.
+- If the card comes out too easily or is too hard to pull, change
+  `dummy_grip` (how far each spring reaches past the card's edge, 0.4 mm by
+  default) and print the base again.
 
 ## Before the ATM: measure, and print the test pieces
 
@@ -265,6 +295,20 @@ scripts move the servos calmly from where they were left (noted on the Pi in
 pusher home before the turret turns; `cycle` starts and ends at rest and goes
 back to rest on Ctrl+C (a second Ctrl+C lets the servos go limp at once).
 
+With the dummy reader the ATM server already drives the servos
+(`NEARCASH_DISPENSER=servos`, set by `pnpm atm:demo --dummy-reader`). For each
+paid sale it starts `dispense.py` with spawn, which:
+- loads the card and brings the pusher back;
+- hands the card out, and the kiosk says "take it";
+- waits 15 s and turns the turret back to the loading angle.
+
+A card left in goes back in with the turret: take it out of the reader before
+the next sale. The calibration options are `cycle.py`'s: give them to the demo
+in `NEARCASH_SERVO_OPTIONS` (e.g. `NEARCASH_SERVO_OPTIONS="--pusher-reversed"
+pnpm atm:demo --dummy-reader …`). With the NFC reader the card must be loaded
+before the sale (the ATM checks it is blank first): that part of the server is
+not written yet.
+
 ## How we know the design is right, and what is left to check
 
 Checked on the computer, every time the files are generated:
@@ -272,8 +316,9 @@ Checked on the computer, every time the files are generated:
 - `check-clearances.sh` intersects the parts that must never touch: the
   carriage in its rails and the lever's pin in its slot at nine positions of
   the stroke, the lever's swing, the turret with the banknote at every 10° from
-  0° to 180°, every fit (posts, pegs, gate, servos and their screws), and the phone in
-  its groove with the back's rails in their sockets. It fails if any two
+  0° to 180°, every fit (posts, pegs, gate, servos and their screws), the phone in
+  its groove with the back's rails in their sockets, and the dummy reader in the
+  turret's pocket, with a card sliding into it all the way. It fails if any two
   overlap by more than resting on each other, or if a part's STL isn't one
   piece (a part with a gap in it would come off the bed in pieces).
 - The carriage is long enough that the lever's off-centre push can't lock it
@@ -306,3 +351,6 @@ What only the real parts can tell, and how to find out quickly:
 - `nearcash-atm-assembly-en.pdf`, `nearcash-atm-assembly-it.pdf`: the assembly
   instructions, made by `make-instructions.py` from `assembly-steps.scad`.
 - `servo.py`: moves the servos by hand, on the Pi (`pnpm atm:servos`).
+- `cycle.py`: the whole cycle on the servos, to test the mechanics (`pnpm atm:cycle`).
+- `dispense.py`: hands one card out, for the ATM server with the dummy reader.
+- `servo_driver.py`: the servos for the three scripts (the Pi's hardware PWM).

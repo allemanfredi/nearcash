@@ -161,6 +161,7 @@ export function App() {
     return (
       <SaleScreen
         session={session}
+        dummyReader={setup.dummyReader}
         onCancel={async () => setSession(await api.cancel())}
         onSimulatePayment={async () => setSession(await api.simulatePayment())}
         onFinish={finish}

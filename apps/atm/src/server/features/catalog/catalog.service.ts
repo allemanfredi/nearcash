@@ -20,7 +20,7 @@ const CACHE_MS = 60_000;
  */
 @Injectable()
 export class CatalogService {
-  private cached: { value: Omit<Setup, 'outOfService'>; readAt: number } | undefined;
+  private cached: { value: Omit<Setup, 'outOfService' | 'dummyReader'>; readAt: number } | undefined;
 
   constructor(
     @Inject(ISSUANCE) private readonly issuance: AtmIssuanceApi,
@@ -30,10 +30,10 @@ export class CatalogService {
   async setup(): Promise<Setup> {
     // Asked every time (never cached): a reader can be connected or a cassette run out.
     const outOfService = await this.cassette.unavailableReason();
-    return { ...(await this.catalog()), outOfService };
+    return { ...(await this.catalog()), outOfService, dummyReader: this.cassette.dummy };
   }
 
-  private async catalog(): Promise<Omit<Setup, 'outOfService'>> {
+  private async catalog(): Promise<Omit<Setup, 'outOfService' | 'dummyReader'>> {
     if (this.cached && Date.now() - this.cached.readAt < CACHE_MS) return this.cached.value;
     const [banknotes, info] = await Promise.all([this.issuance.saleDenominations(), this.issuance.info()]);
     const value = {

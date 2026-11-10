@@ -12,9 +12,16 @@
  *   NEARCASH_KIOSK_KEY       pairing key the iPhone must send; empty: no check (development)
  *   NEARCASH_CASSETTE        none                       none: no reader, the ATM is out of service
  *                                                       pcsc: the NFC reader (PC/SC) in front of the blank cards
+ *                                                       dummy: the printed dummy reader, to test the sale and the
+ *                                                              mechanics without the NFC reader: nothing is issued,
+ *                                                              the card comes out blank
  *   NEARCASH_READER          part of the NFC reader's name; needed only when several
  *                            PC/SC readers are connected (a YubiKey counts as one)
- *   NEARCASH_DISPENSER       sim                        (the Raspberry's dispenser motor comes next)
+ *   NEARCASH_DISPENSER       sim                        sim: nothing moves, the dispense is only logged
+ *                                                       servos: the turret and the pusher, through
+ *                                                               hardware/atm/dispense.py (for now only with
+ *                                                               NEARCASH_CASSETTE=dummy)
+ *   NEARCASH_SERVO_OPTIONS   the servos' calibration, as for `pnpm atm:cycle`, e.g. "--pusher-reversed --stroke 160"
  */
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -26,6 +33,9 @@ export const ATM_CONFIG = Symbol('ATM_CONFIG');
 /** apps/atm, from src/server/config (sources) or dist/server/config (build). */
 const appDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
+/** The script that drives the servos for one card (Python, shared with cycle.py: servo_driver.py). */
+const DISPENSE_SCRIPT = resolve(appDirectory, '../../hardware/atm/dispense.py');
+
 export type AtmConfig = {
   issuance: { url: string; atmToken: string };
   /** Issuer key (compressed, hex) every dispensed card must verify against; undefined: ask the issuance server. */
@@ -34,9 +44,16 @@ export type AtmConfig = {
   http: { host: string; port: number };
   /** When set, the kiosk API answers only a screen that sends it (X-Kiosk-Key). */
   kioskKey: string | undefined;
-  /** none: no reader (out of service); pcsc: the NFC reader in front of the blank cards. */
-  cassette: { kind: 'none' } | { kind: 'pcsc'; readerName: string | undefined };
-  dispenser: { kind: 'sim' };
+  /**
+   * none: no reader (out of service); pcsc: the NFC reader in front of the
+   * blank cards; dummy: the printed dummy reader (no chip: cards come out blank).
+   */
+  cassette: { kind: 'none' } | { kind: 'pcsc'; readerName: string | undefined } | { kind: 'dummy' };
+  /**
+   * sim: only logged; servos: `command` is run for each card (python3,
+   * dispense.py and the calibration options).
+   */
+  dispenser: { kind: 'sim' } | { kind: 'servos'; command: string[] };
   /** How often a sale's payment is asked to the issuance server. */
   pollMs: number;
   /** After a quote's deadline, how long to keep trying when the issuance server can't be reached. */
@@ -59,11 +76,26 @@ export function loadAtmEnvironment(): NodeJS.ProcessEnv {
 
 export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
   const cassette = env.NEARCASH_CASSETTE ?? 'none';
-  if (cassette !== 'none' && cassette !== 'pcsc') {
-    throw new ConfigurationError(`NEARCASH_CASSETTE=${cassette}: must be "pcsc" (the NFC reader) or "none"`);
+  if (cassette !== 'none' && cassette !== 'pcsc' && cassette !== 'dummy') {
+    throw new ConfigurationError(
+      `NEARCASH_CASSETTE=${cassette}: must be "pcsc" (the NFC reader), "dummy" (the printed dummy reader) or "none"`,
+    );
   }
   const dispenser = env.NEARCASH_DISPENSER ?? 'sim';
-  if (dispenser !== 'sim') throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: not available yet (only "sim")`);
+  if (dispenser !== 'sim' && dispenser !== 'servos') {
+    throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: must be "servos" (the turret and the pusher) or "sim"`);
+  }
+  // The servos load the next card at hand-out time, which suits only the dummy
+  // reader: with the NFC reader the blank card must be on it before the sale
+  // (the ATM checks it), and that loading is not written yet.
+  if (dispenser === 'servos' && cassette !== 'dummy') {
+    throw new ConfigurationError(
+      'NEARCASH_DISPENSER=servos works only with NEARCASH_CASSETTE=dummy for now: with the NFC reader, ' +
+        'the next card must be loaded before the sale, which the servos do not do yet',
+    );
+  }
+  // "--pusher-reversed --stroke 160" → ["--pusher-reversed", "--stroke", "160"]: dispense.py checks them.
+  const servoOptions = (env.NEARCASH_SERVO_OPTIONS ?? '').split(/\s+/).filter((option) => option !== '');
 
   return {
     issuance: {
@@ -76,8 +108,9 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
       port: Number(env.NEARCASH_ATM_PORT ?? 8792),
     },
     kioskKey: env.NEARCASH_KIOSK_KEY || undefined,
-    cassette: cassette === 'pcsc' ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined } : { kind: 'none' },
-    dispenser: { kind: 'sim' },
+    cassette:
+      cassette === 'pcsc' ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined } : { kind: cassette },
+    dispenser: dispenser === 'servos' ? { kind: 'servos', command: ['python3', DISPENSE_SCRIPT, ...servoOptions] } : { kind: 'sim' },
     pollMs: 3_000,
     graceMs: 15 * 60_000,
   };

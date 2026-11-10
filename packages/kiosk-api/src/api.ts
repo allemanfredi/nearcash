@@ -34,6 +34,11 @@ export type Setup = {
   /** Development: payments are simulated and can be paid from the screen. */
   simulatedPayments: boolean;
   /**
+   * Test: the printed dummy reader stands in for the NFC reader. A paid sale
+   * issues nothing and the card comes out blank (the screen says so).
+   */
+  dummyReader: boolean;
+  /**
    * Why the ATM can't sell right now (e.g. no card reader connected), or
    * null. When set, the screen shows "out of service" and no sale can start.
    */
@@ -59,6 +64,7 @@ export type StartRequest = {
 /**
  * Where a sale is. The happy path:
  *   awaiting_payment → preparing → certifying → writing → dispensing → dispensed
+ * (with the dummy reader: awaiting_payment → dispensing → dispensed, a blank card)
  * and the ends without a banknote: expired, refunded, cancelled, failed.
  */
 export type Stage =

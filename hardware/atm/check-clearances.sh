@@ -21,6 +21,8 @@ NAMES=(
   "servo screws and plates clear"
   "phone in its cradle"
   "phone back in its sockets"
+  "dummy reader in the turret, under the strap"
+  "card into the dummy reader"
 )
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

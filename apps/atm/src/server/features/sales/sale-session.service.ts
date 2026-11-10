@@ -9,6 +9,8 @@
  *   issue     paid → next blank card from the cassette generates its keys →
  *             the server funds and certifies it (NEAR MPC) → certificate and
  *             PIN are written and the card is verified → it is dispensed
+ *             (with the printed dummy reader: nothing is issued, the card is
+ *             dispensed blank, to test the sale and the mechanics)
  *
  * The PIN is chosen before paying, so the banknote comes out on its own as
  * soon as the money arrives. It lives only in memory and is dropped once
@@ -172,6 +174,7 @@ export class SaleSessionService {
 
   /** Paid: make the banknote and hand it out. A card that fails is never dispensed. */
   private async issue(session: SaleSession): Promise<void> {
+    if (this.cassette.dummy) return this.handOutBlankCard(session);
     const id = session.sale.id;
     try {
       session.stage = 'preparing';
@@ -189,6 +192,32 @@ export class SaleSessionService {
       await this.dispenser.dispense();
       session.stage = 'dispensed';
       this.log.log(`[sale ${id}] banknote dispensed`);
+    } catch (error) {
+      this.fail(session, message(error));
+    }
+  }
+
+  /**
+   * Paid, with the printed dummy reader in the turret (NEARCASH_CASSETTE=dummy):
+   * there is no chip to talk to, so nothing is issued (no card keys, no
+   * funding, no certificate, no PIN) and the card comes out blank. The sale
+   * stays PAID at the issuance server: with real payments, the money waits in
+   * the reserve until the operator refunds it.
+   */
+  private async handOutBlankCard(session: SaleSession): Promise<void> {
+    const id = session.sale.id;
+    session.pin = '';
+    this.log.log(
+      `[sale ${id}] DUMMY READER: nothing is issued, the card comes out blank; ` +
+        (session.simulated
+          ? 'payments are simulated, no money moved'
+          : 'OPERATOR: the sale stays PAID at the issuance server, refund the money from the reserve'),
+    );
+    try {
+      session.stage = 'dispensing';
+      await this.dispenser.dispense();
+      session.stage = 'dispensed';
+      this.log.log(`[sale ${id}] blank card dispensed (dummy reader)`);
     } catch (error) {
       this.fail(session, message(error));
     }

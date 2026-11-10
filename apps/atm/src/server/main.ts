@@ -33,7 +33,12 @@ console.log(`NearCash ATM server on http://${config.http.host}:${config.http.por
 console.log(
   `  issuance ${config.issuance.url}, issuer ${issuer?.name}, ${app.get<Cassette>(CASSETTE).name}, ${app.get<Dispenser>(DISPENSER).name}`,
 );
-const outOfService = await app.get<Cassette>(CASSETTE).unavailableReason();
+const cassette = app.get<Cassette>(CASSETTE);
+if (cassette.dummy) {
+  console.warn('⚠ DUMMY READER: paid sales issue nothing, the card comes out blank (testing the sale and the mechanics).');
+  console.warn('  With real payments the money stays in the reserve: the sale stays PAID at the issuance server, refund it.');
+}
+const outOfService = await cassette.unavailableReason();
 if (outOfService) console.warn(`⚠ out of service: ${outOfService} (the kiosk says so, no sale can start)`);
 console.log(
   config.kioskKey

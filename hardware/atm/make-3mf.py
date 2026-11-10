@@ -6,7 +6,8 @@ its plate, in its colour, with the print settings. Run it after export.sh:
 
 It uses Bambu Studio's own command line (on macOS, the app in /Applications)
 and its system profiles: Bambu Lab X2D 0.4 nozzle, 0.24mm Standard with 2
-walls and 15 % infill, Bambu PETG Basic in NearCash green and in black.
+walls and 15 % infill, Bambu PETG Basic in NearCash green, in black and in
+white (white only for the dummy reader, a stand-in for the card reader).
 """
 import json
 import os
@@ -20,9 +21,9 @@ STL = os.path.join(HERE, 'stl')
 BAMBU = os.environ.get('BAMBU_STUDIO', '/Applications/BambuStudio.app/Contents/MacOS/BambuStudio')
 PROFILES = os.environ.get('BAMBU_PROFILES', '/Applications/BambuStudio.app/Contents/Resources/profiles/BBL')
 
-GREEN, BLACK = 1, 2   # filament slots
-# The nozzle of each filament slot: both on nozzle 1, the one the AMS feeds (see PLATES).
-FILAMENT_MAP = ['1', '1']
+GREEN, BLACK, WHITE = 1, 2, 3   # filament slots
+# The nozzle of each filament slot: all on nozzle 1, the one the AMS feeds (see PLATES).
+FILAMENT_MAP = ['1', '1', '1']
 BED = (256, 256)
 # The X2D's second nozzle can't reach the bed's first 20.5 mm in X (its profile's
 # extruder_printable_area): a plate with two colours keeps its parts right of that.
@@ -103,6 +104,12 @@ PLATES = [
     ('Green and black: the face, with black lips and the NearCash name and logo', [
         ('face', GREEN, 1, [(40, 10)]),
         ('face_brand', BLACK, 1, [None]),
+    ]),
+    # Until the ACR39U arrives: a dummy reader in its place on the turret, to try the mechanism (a card slides in,
+    # stops at the reader's depth, is held while the turret turns). Base and lid, each printed as it sits.
+    ('Test, white: the dummy reader (a stand-in for the ACR39U)', [
+        ('dummy_reader', WHITE, 0, [(40, 90)]),
+        ('dummy_reader_lid', WHITE, 0, [(140, 90)]),
     ]),
 ]
 
@@ -204,6 +211,8 @@ def main():
                     {'filament_settings_id': ['NearCash green PETG'], 'filament_colour': ['#00EC97']}, f'{work}/green.json', variants),
         user_preset('filament', 'Bambu PETG Basic @BBL X2D 0.4 nozzle', 'NearCash black PETG',
                     {'filament_settings_id': ['NearCash black PETG'], 'filament_colour': ['#161616']}, f'{work}/black.json', variants),
+        user_preset('filament', 'Bambu PETG Basic @BBL X2D 0.4 nozzle', 'NearCash white PETG',
+                    {'filament_settings_id': ['NearCash white PETG'], 'filament_colour': ['#F5F5F5']}, f'{work}/white.json', variants),
     ]
 
     assemble = {'plates': []}

@@ -70,3 +70,13 @@ if (check == 12)  // the phone sits on its shelf and against its back without be
     intersection() { phone_ghost(); union() { phone_shelf(); phone_back(); face(); legs_front(); } }
 if (check == 13)  // the back's rails in the shelf's sockets
     intersection() { phone_back(); phone_shelf(); }
+if (check == 14)  // the dummy reader sits in the turret's pocket, under the strap, its lid on its pegs
+    union() {
+        intersection() { union() { dummy_reader(); dummy_reader_lid(); } union() { turret(); turret_strap(); } }
+        intersection() { dummy_reader(); dummy_reader_lid(); }
+    }
+if (check == 15)  // a card slides into the dummy reader all the way to its end without touching it (springs aside: grip 0)
+    for (d = [0 : 10 : card_insert_depth]) intersection() {
+        translate([-card_w / 2, slot_y - d, Zc]) cube([card_w, card_l, card_t]);
+        union() { dummy_reader(grip = 0); dummy_reader_lid(); }
+    }

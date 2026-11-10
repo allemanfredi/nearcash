@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # NearCash ATM demo in one command:
 #
-#   scripts/atm-demo.sh [--skip-mpc] <[user@]raspberry-address> [password]
-#   pnpm atm:demo [--skip-mpc] <[user@]raspberry-address> [password]
+#   scripts/atm-demo.sh [--skip-mpc] [--dummy-reader] <[user@]raspberry-address> [password]
+#   pnpm atm:demo [--skip-mpc] [--dummy-reader] <[user@]raspberry-address> [password]
 #
 #   --skip-mpc   the issuance server signs the banknotes' certificates itself,
 #                with the public DEV key, instead of asking the NEAR MPC
@@ -11,6 +11,16 @@
 #                trusts the key because it asks the issuance server, the
 #                wallet app only in its Debug builds. (Without the flag:
 #                NEAR MPC, unless .env.issuance sets NEARCASH_SKIP_MPC=true.)
+#
+#   --dummy-reader  the printed dummy reader (plate 15) is in the turret instead
+#                of the NFC reader: the whole sale and the mechanics can be
+#                tested before the reader arrives. Once a sale is paid, the ATM
+#                server drives the servos (hardware/atm/dispense.py) and a blank
+#                card comes out of the smile: nothing is written on it and
+#                nothing is issued. The sale stays paid at the issuance server:
+#                with real payments the money waits in the reserve, to be
+#                refunded by hand. (Without the flag: the NFC reader, and the
+#                servos stay still.)
 #
 # Deploys the ATM to the Raspberry Pi and starts it there, in a tmux session
 # ("nearcash") on the Pi itself: it keeps running when this computer
@@ -31,8 +41,8 @@
 #                  HTTPS to the iPhone) and the ATM server behind it (apps/atm,
 #                  NestJS, only on the Pi), which talks to the issuance server
 #                  over the LAN.
-# Until the NFC reader and the cards arrive, the ATM has no cassette: the
-# kiosk shows "out of service" and no sale can start.
+# The ATM sells only while a blank card is on the NFC reader; until the reader
+# arrives, --dummy-reader sells with the printed dummy reader instead.
 #
 # The password is used once, to install an SSH key on the Pi
 # (~/.ssh/nearcash_atm_ed25519), and for sudo if the Pi asks for it. Leave it
@@ -43,6 +53,8 @@
 #   PI_USER         user when the address has none (default: pi)
 #   PI_SSH_PORT     SSH port of the Pi (default: 22)
 #   LAPTOP_ADDRESS  this computer's address as the Pi reaches it (default: detected)
+#   NEARCASH_SERVO_OPTIONS  with --dummy-reader: the servos' calibration, as for
+#                   pnpm atm:cycle (e.g. "--pusher-reversed --stroke 160")
 #   NEARCASH_SESSION  tmux session name (default: nearcash)
 set -euo pipefail
 
@@ -81,10 +93,12 @@ quietly() {
 
 # Options anywhere; the rest are the address and the password, in this order.
 SKIP_MPC=0
+DUMMY_READER=0
 ARGS=()
 for argument in "$@"; do
   case "$argument" in
     --skip-mpc) SKIP_MPC=1 ;;
+    --dummy-reader) DUMMY_READER=1 ;;
     -h | --help) usage ;;
     -*) die "unknown option \"$argument\" (see: scripts/atm-demo.sh --help)" ;;
     *) ARGS+=("$argument") ;;
@@ -143,6 +157,20 @@ if [ "$SKIP_MPC" = 1 ]; then
 else
   CERTIFICATES="signed by the NEAR MPC network, through the issuer contract"
   info "certificates: NEAR MPC (add --skip-mpc to sign them on this computer, for a demo)"
+fi
+# Which reader is in the turret. With the dummy, a paid sale issues nothing:
+# with real payments (NEARCASH_PAYMENTS=1click) the money stays in the reserve.
+SERVO_OPTIONS="${NEARCASH_SERVO_OPTIONS:-}"
+if [ "$DUMMY_READER" = 1 ]; then
+  READER="the printed dummy reader: once paid, the servos hand out a blank card (nothing is issued)"
+  warn "Dummy reader: a paid sale issues nothing, the servos hand out a blank card."
+  case "$(sed -n 's/^NEARCASH_PAYMENTS=//p' "$ROOT/.env.issuance" | tail -1 | tr -d "\"' " | tr '[:upper:]' '[:lower:]')" in
+    1click) warn "Payments are REAL (.env.issuance): the money of each sale stays in the reserve, refund it by hand." ;;
+  esac
+  info "servos' calibration: ${SERVO_OPTIONS:-the defaults} (NEARCASH_SERVO_OPTIONS, as for pnpm atm:cycle)"
+else
+  READER="the NFC reader: the ATM sells only while a blank card is on it"
+  info "reader: the NFC reader (add --dummy-reader to test with the printed dummy and the servos)"
 fi
 
 # A previous run of the demo: stop it, so its ports are free again.
@@ -319,8 +347,14 @@ fi
   echo "NEARCASH_ATM_HOST=127.0.0.1"
   echo "NEARCASH_ATM_PORT=$ATM_SERVER_PORT"
   echo "NEARCASH_KIOSK_KEY=$KIOSK_KEY"
-  echo "NEARCASH_CASSETTE=pcsc   # the NFC reader; out of service until a blank card is on it"
-  echo "NEARCASH_DISPENSER=sim"
+  if [ "$DUMMY_READER" = 1 ]; then
+    echo "NEARCASH_CASSETTE=dummy   # the printed dummy reader: nothing is issued, the card comes out blank"
+    echo "NEARCASH_DISPENSER=servos # hardware/atm/dispense.py drives the turret and the pusher"
+    echo "NEARCASH_SERVO_OPTIONS=\"$SERVO_OPTIONS\""
+  else
+    echo "NEARCASH_CASSETTE=pcsc   # the NFC reader; out of service until a blank card is on it"
+    echo "NEARCASH_DISPENSER=sim"
+  fi
   echo "# kiosk page (apps/kiosk)"
   echo "NEARCASH_KIOSK_HOST=0.0.0.0"
   echo "NEARCASH_KIOSK_PORT=$KIOSK_PORT"
@@ -427,6 +461,7 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   echo "  Website            http://localhost:$WEBSITE_PORT    ·    http://$LAPTOP_ADDRESS:$WEBSITE_PORT"
   echo "  Issuance server    http://$LAPTOP_ADDRESS:$ISSUANCE_PORT   (configuration: .env.issuance)"
   echo "  Certificates       $CERTIFICATES"
+  echo "  Reader             $READER"
   echo
   echo "The Pi's session, directly (ATM server and kiosk page; Ctrl-b d leaves it running):"
   echo "  $CONNECT_COMMAND"
@@ -453,7 +488,12 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   echo "      Ctrl-b d leaves (everything keeps running) · tmux attach -t $SESSION comes back ·"
   echo "      tmux kill-session -t $SESSION stops this computer's part (the Pi keeps its own)."
   echo "      In the Raspberry Pi pane, the Pi's tmux takes Ctrl-b twice (Ctrl-b Ctrl-b o: its other pane)."
-  echo "No NFC reader yet: the kiosk shows \"Out of service\" and no sale can start."
+  if [ "$DUMMY_READER" = 1 ]; then
+    echo "Dummy reader: each paid sale hands out a blank card. Take it within 15 s: then the turret turns back"
+    echo "(a card left in goes back in with it: take it out of the reader before the next sale)."
+  else
+    echo "Without a blank card on the NFC reader the kiosk shows \"Out of service\" (no reader yet: --dummy-reader)."
+  fi
   echo "macOS may ask once whether node can accept incoming connections: allow it (the Pi calls the issuance server)."
   echo "The issuance server listens on the LAN for the Pi: use a network you trust."
 } >"$DEMO_DIR/info.txt"

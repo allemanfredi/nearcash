@@ -17,6 +17,7 @@ PARTS=(
   phone_shelf phone_back
   carriage lever turret turret_strap servo_clamp
   face face_brand test_fit test_horn test_reader
+  dummy_reader dummy_reader_lid
 )
 
 mkdir -p "$HERE/stl" "$HERE/images"
@@ -32,6 +33,8 @@ render() { "$OPENSCAD" --backend=manifold -q --colorscheme=Tomorrow "$@" "$MODEL
 render -D 'turret_angle=180' --camera=-260,-480,300,0,40,90 --viewall --imgsize=2400,1800 -o "$HERE/images/atm-front.png"
 render -D 'pusher=0.6' --camera=320,330,260,0,70,40 --viewall --imgsize=2400,1800 -o "$HERE/images/atm-back.png"
 render -D 'part="section"' -D 'pusher=0.6' --camera=500,80,40,0,80,40 --viewall --projection=ortho --imgsize=1400,1000 -o "$HERE/images/atm-section.png"
+# The dummy reader, its lid lifted off and a card halfway in (seen from its mouth).
+render -D 'part="dummy_preview"' --camera=150,260,170,0,10,20 --viewall --imgsize=3200,2400 -o "$HERE/images/dummy-reader.png"
 FRAMES="$(mktemp -d)"
 step=1
 for state in "-D pusher=0" "-D pusher=0.45" "-D pusher=1" "-D pusher=0 -D card_in_reader=true" "-D pusher=0 -D turret_angle=90" "-D pusher=0 -D turret_angle=180"; do
@@ -40,10 +43,10 @@ for state in "-D pusher=0" "-D pusher=0.45" "-D pusher=1" "-D pusher=0 -D card_i
   step=$((step + 1))
 done
 if python3 -c "import PIL" 2>/dev/null; then
-  python3 "$HERE/crop.py" "$HERE/images/atm-front.png" "$HERE/images/atm-back.png"
+  python3 "$HERE/crop.py" "$HERE/images/atm-front.png" "$HERE/images/atm-back.png" "$HERE/images/dummy-reader.png"
   python3 "$HERE/sequence.py" "$FRAMES" "$HERE/images/how-it-works.png"
 else
   echo "(images not cropped and how-it-works.png not updated: they need Pillow, pip install pillow)"
 fi
 rm -rf "$FRAMES"
-echo "images/atm-front.png images/atm-back.png images/atm-section.png images/how-it-works.png"
+echo "images/atm-front.png images/atm-back.png images/atm-section.png images/dummy-reader.png images/how-it-works.png"

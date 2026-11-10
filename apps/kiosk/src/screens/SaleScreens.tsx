@@ -10,7 +10,7 @@ import { LottiePlayer } from '../components/LottiePlayer.tsx';
 import { QrCode } from '../components/QrCode.tsx';
 import { Screen } from '../components/Screen.tsx';
 import { formatCountdown, shortAddress, useSecondsLeft } from '../hooks.ts';
-import { SimulatedBadge } from './ChooseScreens.tsx';
+import { DummyReaderBadge, SimulatedBadge } from './ChooseScreens.tsx';
 
 /** Stages that mean the payment has arrived. */
 const PAID_STAGES: ReadonlySet<Stage> = new Set(['preparing', 'certifying', 'writing', 'dispensing', 'dispensed']);
@@ -21,11 +21,14 @@ const DEPOSIT_MAX_MS = 5_000;
 
 export function SaleScreen({
   session,
+  dummyReader,
   onCancel,
   onSimulatePayment,
   onFinish,
 }: {
   session: SessionView;
+  /** The printed dummy reader is in (Setup.dummyReader): nothing is issued, the card comes out blank. */
+  dummyReader: boolean;
   onCancel: () => Promise<void>;
   onSimulatePayment: () => Promise<void>;
   onFinish: () => Promise<void>;
@@ -35,14 +38,14 @@ export function SaleScreen({
 
   switch (session.stage) {
     case 'awaiting_payment':
-      return <PayScreen session={session} onCancel={onCancel} onSimulatePayment={onSimulatePayment} />;
+      return <PayScreen session={session} dummyReader={dummyReader} onCancel={onCancel} onSimulatePayment={onSimulatePayment} />;
     case 'preparing':
     case 'certifying':
     case 'writing':
     case 'dispensing':
-      return <IssuingScreen session={session} />;
+      return <IssuingScreen session={session} dummyReader={dummyReader} />;
     default:
-      return <ResultScreen session={session} onFinish={onFinish} />;
+      return <ResultScreen session={session} dummyReader={dummyReader} onFinish={onFinish} />;
   }
 }
 
@@ -76,10 +79,12 @@ function useDepositCelebration(stage: Stage): { active: boolean; end: () => void
 
 function PayScreen({
   session,
+  dummyReader,
   onCancel,
   onSimulatePayment,
 }: {
   session: SessionView;
+  dummyReader: boolean;
   onCancel: () => Promise<void>;
   onSimulatePayment: () => Promise<void>;
 }) {
@@ -136,6 +141,7 @@ function PayScreen({
       }
     >
       {payment.simulated && <SimulatedBadge />}
+      {dummyReader && <DummyReaderBadge />}
       <div className="pay">
         <QrCode text={payment.depositAddress} label={`Deposit address on ${payment.network}`} />
       </div>
@@ -189,19 +195,25 @@ const ISSUING_STEPS: { stage: Stage; label: string }[] = [
   { stage: 'dispensing', label: 'Handing it over' },
 ];
 
-function IssuingScreen({ session }: { session: SessionView }) {
-  const current = ISSUING_STEPS.findIndex((step) => step.stage === session.stage);
+/** With the dummy reader nothing is issued: the ATM only loads a blank card and hands it over. */
+const DUMMY_READER_STEPS: { stage: Stage; label: string }[] = [
+  { stage: 'dispensing', label: 'Loading a blank card and handing it over (dummy reader: nothing is written)' },
+];
+
+function IssuingScreen({ session, dummyReader }: { session: SessionView; dummyReader: boolean }) {
+  const steps = dummyReader ? DUMMY_READER_STEPS : ISSUING_STEPS;
+  const current = steps.findIndex((step) => step.stage === session.stage);
   return (
     <Screen
       title={
         <>
-          Payment received. <em>Printing your banknote.</em>
+          Payment received. <em>{dummyReader ? 'Handing out a blank card.' : 'Printing your banknote.'}</em>
         </>
       }
       lead={`${session.banknote}. This takes a few seconds.`}
     >
       <ol className="progress">
-        {ISSUING_STEPS.map((step, index) => (
+        {steps.map((step, index) => (
           <li
             key={step.stage}
             className={`progress__step ${index < current ? 'is-done' : index === current ? 'is-current' : ''}`}
@@ -220,14 +232,22 @@ function IssuingScreen({ session }: { session: SessionView }) {
 /** After this long on a result screen, the ATM goes back to the start by itself. */
 const RESULT_TIMEOUT_MS = 45_000;
 
-function ResultScreen({ session, onFinish }: { session: SessionView; onFinish: () => Promise<void> }) {
+function ResultScreen({
+  session,
+  dummyReader,
+  onFinish,
+}: {
+  session: SessionView;
+  dummyReader: boolean;
+  onFinish: () => Promise<void>;
+}) {
   // Back to the start by itself if the customer just walks away.
   useEffect(() => {
     const timer = window.setTimeout(() => void onFinish(), RESULT_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [onFinish]);
 
-  const { title, lead, tone } = resultText(session);
+  const { title, lead, tone } = resultText(session, dummyReader);
   return (
     <Screen
       title={title}
@@ -240,7 +260,7 @@ function ResultScreen({ session, onFinish }: { session: SessionView; onFinish: (
     >
       <div className={`result result--${tone}`}>
         <span className="result__mark" aria-hidden="true" />
-        {session.stage === 'dispensed' ? (
+        {session.stage === 'dispensed' && !dummyReader ? (
           <p className="result__value">{session.banknote}</p>
         ) : (
           <p className="result__reference">
@@ -252,9 +272,26 @@ function ResultScreen({ session, onFinish }: { session: SessionView; onFinish: (
   );
 }
 
-function resultText(session: SessionView): { title: ReactNode; lead: string; tone: 'good' | 'neutral' | 'bad' } {
+function resultText(
+  session: SessionView,
+  dummyReader: boolean,
+): { title: ReactNode; lead: string; tone: 'good' | 'neutral' | 'bad' } {
   switch (session.stage) {
     case 'dispensed':
+      // The dummy reader wrote nothing: a blank card, not a banknote. The sale stays paid at the bank.
+      if (dummyReader) {
+        return {
+          title: (
+            <>
+              Take the <em>card.</em>
+            </>
+          ),
+          lead: session.payment.simulated
+            ? 'Test mode: the dummy reader wrote nothing on it, and the payment was simulated.'
+            : 'Test mode: the dummy reader wrote nothing on it. Your payment stays with the bank: show this reference to the operator for a refund.',
+          tone: 'good',
+        };
+      }
       return {
         title: (
           <>

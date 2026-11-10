@@ -191,3 +191,8 @@ is asked only the first time.
 The ATM sells only while a blank banknote is on the NFC reader; otherwise the
 kiosk shows "Out of service": the ATM never takes a payment it can't turn
 into a banknote. `pnpm atm:reader` checks the reader and the card on it.
+
+Before the reader arrives, `pnpm atm:demo --dummy-reader <user>@<raspberry-address>`
+tests the whole sale with the printed dummy reader in the turret. Once a sale
+is paid, the servos hand out a blank card: nothing is written on it and
+nothing is issued, and the sale stays paid at the issuance server.

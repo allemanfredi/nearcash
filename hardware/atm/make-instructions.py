@@ -39,6 +39,7 @@ PARTS = [
     ('hopper', 1, 'green', 11), ('gate_1_1', 1, 'black', 12), ('turret', 1, 'green', 13),
     ('turret_strap', 1, 'black', 3), ('face', 1, 'green and black', 14), ('phone_shelf', 1, 'black', 9),
     ('phone_back', 1, 'black', 9), ('test_fit', 1, 'black', 1), ('test_reader', 1, 'black', 1), ('test_horn', 1, 'black', 4),
+    ('dummy_reader', 1, 'white', 15), ('dummy_reader_lid', 1, 'white', 15),
 ]
 
 # Where each assembly step is seen from: the eye (x, y, z), then the point it
@@ -68,7 +69,7 @@ FRAME_CAMERA = '360,-170,280,0,55,40'
 ENGLISH = dict(
     file='nearcash-atm-assembly-en.pdf',
     lang='en',
-    colours={'black': 'black', 'green': 'green', 'green and black': 'green and black'},
+    colours={'black': 'black', 'green': 'green', 'green and black': 'green and black', 'white': 'white'},
     plate='plate',
     parts={
         'chassis': 'Chassis', 'servo_clamp': 'Plate under a servo tab',
@@ -76,6 +77,7 @@ ENGLISH = dict(
         'channel_post': 'Channel post', 'channel_floor': 'Channel floor', 'hopper': 'Hopper', 'gate_1_1': 'Gate (1.1 mm gap)',
         'turret': 'Turret', 'turret_strap': 'Reader’s strap', 'face': 'Face (the smile)', 'phone_shelf': 'Phone shelf',
         'phone_back': 'Phone back', 'test_fit': 'Fit test piece', 'test_reader': 'Reader test piece', 'test_horn': 'Horn pocket test piece',
+        'dummy_reader': 'Dummy reader (until the ACR39U arrives)', 'dummy_reader_lid': 'Dummy reader’s lid',
     },
     frames=[
         'Ready: blank cards wait in the hopper; the reader’s slot faces them.',
@@ -232,6 +234,12 @@ too hard to bare smooth PEI), the textured one works too.</p>
 <p>Plate 14, the face, is the only one in two colours: the lips round the smile and the NearCash name and logo
 are black, flush in its front, which prints against the bed. The AMS takes both colours to the same nozzle and swaps them in the first three layers
 only, with a small prime tower (a few minutes and about 2 g more). The project already maps both to that nozzle.</p>
+<p>No reader yet? <b>Plate 15</b> (about 50 minutes, in white) is a dummy reader to try the mechanism with: the reader’s
+outside, so it sits in the turret under the strap, and its slot, as high and as deep. A card slides in from the turret’s
+shelf, stops where it would in the reader, and two springs at the slot’s sides hold it while the turret turns, as the
+reader’s contacts do. The lid pegs onto the base. It reads nothing: run the motion alone (<code>cycle.py</code>), or a
+whole sale with <code>pnpm atm:demo --dummy-reader</code>, which hands out the card blank once paid. If the
+card comes out too easily or is too hard to pull, change <code>dummy_grip</code>.</p>
 
 <h2 class="break">4 · Preparing the servos</h2>
 <p>The horns go on with the servos at rest, so wire the servos before the assembly. They plug straight into the Pi:
@@ -343,7 +351,7 @@ a note about the hardware PWM, turn it on (see “Preparing the servos”).</td>
 ITALIAN = dict(
     file='nearcash-atm-assembly-it.pdf',
     lang='it',
-    colours={'black': 'nero', 'green': 'verde', 'green and black': 'verde e nero'},
+    colours={'black': 'nero', 'green': 'verde', 'green and black': 'verde e nero', 'white': 'bianco'},
     plate='piatto',
     parts={
         'chassis': 'Telaio', 'servo_clamp': 'Piastrina sotto un’aletta del servo',
@@ -351,6 +359,7 @@ ITALIAN = dict(
         'channel_post': 'Palo del canale', 'channel_floor': 'Pavimento del canale', 'hopper': 'Tramoggia', 'gate_1_1': 'Paratia (luce 1,1 mm)',
         'turret': 'Torretta', 'turret_strap': 'Fascetta del lettore', 'face': 'Faccia (il sorriso)', 'phone_shelf': 'Mensola del telefono',
         'phone_back': 'Schienale del telefono', 'test_fit': 'Pezzo di prova degli incastri', 'test_reader': 'Pezzo di prova del lettore', 'test_horn': 'Prova della tasca della squadretta',
+        'dummy_reader': 'Lettore finto (finché non arriva l’ACR39U)', 'dummy_reader_lid': 'Coperchio del lettore finto',
     },
     frames=[
         'Pronto: le carte vergini aspettano nella tramoggia; la fessura del lettore è rivolta verso di loro.',
@@ -509,6 +518,13 @@ pavimento del canale si stampa capovolto, con la faccia su cui scorrono le carte
 <p>Il piatto 14, la faccia, è l’unico a due colori: le labbra intorno al sorriso e il nome e il logo NearCash sono
 neri, a filo sul davanti, che si stampa contro il piatto. La AMS porta i due colori allo stesso ugello e li cambia solo nei primi tre strati, con una
 piccola torre di spurgo (qualche minuto e circa 2 g in più). Il progetto li assegna già tutti e due a quell’ugello.</p>
+<p>Il lettore non è ancora arrivato? Il <b>piatto 15</b> (circa 50 minuti, in bianco) è un lettore finto per provare la
+meccanica: ha l’esterno del lettore, quindi entra nella torretta sotto la fascetta, e la sua fessura, alta e profonda uguale.
+La carta scivola dentro dalla mensola della torretta, si ferma dove si fermerebbe nel lettore, e due molle ai lati della
+fessura la tengono mentre la torretta gira, come fanno i contatti del lettore. Il coperchio si incastra sulla base con i
+pioli. Non legge niente: fai girare solo i movimenti (<code>cycle.py</code>), oppure una vendita intera con
+<code>pnpm atm:demo --dummy-reader</code>, che a pagamento avvenuto consegna la carta vuota. Se la carta esce troppo
+facilmente o è troppo dura da sfilare, cambia <code>dummy_grip</code>.</p>
 
 <h2 class="break">4 · Preparare i servo</h2>
 <p>Le squadrette vanno montate con i servo in posizione di riposo, quindi collega i servo prima del montaggio. Vanno
@@ -713,7 +729,8 @@ def render_pictures(work):
         crop(f, union, 16)
     # A thumbnail of every part, lying as it prints, seen from above at an angle.
     for name, _, colour, _ in PARTS:
-        rgb = '[0.0, 0.8, 0.52]' if colour.startswith('green') else '[0.2, 0.2, 0.22]'   # a part's main colour
+        # a part's main colour
+        rgb = {'green': '[0.0, 0.8, 0.52]', 'white': '[0.9, 0.9, 0.9]'}.get(colour.split()[0], '[0.2, 0.2, 0.22]')
         scad = os.path.join(work, f'part-{name}.scad')
         with open(scad, 'w') as f:
             if name in INLAYS:
