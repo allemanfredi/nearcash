@@ -1,16 +1,46 @@
 # NearCash
 
-Digital bearer cash on NFC cards. Each card **is** a banknote: its value sits
-on NEAR Intents (FAR, the private variant) in an account that only the card's
-chip can spend, once. Banknotes change hands like cash, offline: any phone
-can check one without a server.
+Today almost all money, crypto included, is reached through someone's
+servers: a bank's app, an exchange, a wallet provider, a cloud region. When
+one of them is hacked, patched in a hurry, fails or is switched off, people
+can't pay or withdraw, even when their money is safe. The more payments move
+to apps, the more money depends on those servers. In the last few weeks
+alone:
 
-**The bank is trusted only to make banknotes:** it prepares the cards
-(installs the applet on each blank chip) and issues them (funds each card and
-has it certified). Once issued, a banknote no longer needs the bank at all:
-checking it, handing it over and redeeming it involve only the card, a phone
-and FAR. Handing a banknote over is as private and confidential as paying in
-cash: two people, offline, and nothing recorded on a server or on-chain.
+- **Binance**, the world's largest exchange, halted withdrawals after a
+  $6.3 billion theft, from 29 October to 1 November 2026
+  ([France 24](https://www.france24.com/en/business/20261101-binance-says-resuming-withdrawals-after-major-hack)).
+- **Mercado Bitcoin** stopped deposits and withdrawals "as a precaution"
+  after a security incident on 2 November 2026, with no date given for
+  their return
+  ([The Rio Times](https://www.riotimesonline.com/brazil-mercado-bitcoin-halts-withdrawals-security-incident-2026)).
+- Two critical flaws in **PHP** led governments, banks and brokers to take
+  websites and online services offline while they patched, on 21–22 October
+  2026
+  ([The National](https://www.thenationalnews.com/news/europe/2026/10/22/uk-orders-dozens-of-official-websites-offline-after-flaw-warnings)).
+- A power failure in **Google Cloud**'s London region stopped Revolut card
+  payments, transfers and cash withdrawals on 19–20 October 2026. Revolut
+  said its customers' money was safe; for hours, some of them couldn't use
+  it
+  ([The Irish News](https://www.irishnews.com/news/uk/banks-and-courts-affected-by-disruption-as-google-apologises-for-cloud-outage-NGVJFIJO7NK47DX5KKSFPTUGNQ/)).
+
+Cash is the one kind of money that keeps working when they go down, and it
+is used less and less. NearCash brings its properties to digital money: a
+banknote you hold, check and hand over with no server, no account and no
+connection. It is possible now because NEAR Intents can hold each banknote's
+value privately (FAR), and the NEAR MPC network can certify banknotes without
+anyone holding the key.
+
+A NearCash banknote is an NFC card. Its value sits in the card's own account
+on FAR, the private variant of NEAR Intents, and only the card's chip can
+spend it: once, with the holder's PIN.
+
+**The bank is trusted for one thing: making banknotes.** It prepares each
+blank card by installing the applet on its chip, then issues it by funding
+its account and having it certified. From then on the banknote doesn't need
+the bank: checking it, handing it over and redeeming it involve only the
+card, a phone and FAR. Handing one over is as private as paying in cash: two
+people, offline, nothing recorded on a server or on-chain.
 
 ## The system
 
@@ -64,6 +94,11 @@ a stolen cassette is a stack of blank plastic.
   address isn't theirs. The Pi serves the page over HTTPS to its paired
   screen only.
 
+<img src="hardware/atm/images/atm-front.png" alt="The NearCash ATM: the iPhone on top is its screen, and the banknote comes out of the smile on the front" width="420">
+
+Everything about the ATM's body, from the parts to buy to printing, assembly
+and motion, is in [hardware/atm/README.md](hardware/atm/README.md).
+
 **The wallet app** (`ios/`) is a native iPhone app. It checks a banknote
 offline over NFC — that it is issued and unspent, that its certificate is
 signed by the issuer, that the certificate belongs to this chip, and that the
@@ -111,10 +146,6 @@ the card is funded inside FAR, and the certificate carries only the day.
 ```bash
 pnpm atm:demo <user>@<raspberry-address>
 ```
-
-Add `--skip-mpc` for a quick demo: the issuance server then signs the
-certificates itself, with the public DEV key, instead of asking the NEAR MPC
-network. Only the wallet app's Debug builds accept those banknotes.
 
 It installs what the Raspberry Pi needs, deploys the ATM server and the
 kiosk page there and starts them in a tmux session on the Pi. The issuance
