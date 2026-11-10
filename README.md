@@ -94,7 +94,7 @@ a stolen cassette is a stack of blank plastic.
   address isn't theirs. The Pi serves the page over HTTPS to its paired
   screen only.
 
-<img src="hardware/atm/images/atm-front.png" alt="The NearCash ATM: the iPhone on top is its screen, and the banknote comes out of the smile on the front" width="420">
+<img src="docs/images/atm.png" alt="The NearCash ATM: the iPhone on top is its screen, and the banknote comes out of the smile on the front" width="420">
 
 Everything about the ATM's body, from the parts to buy to printing, assembly
 and motion, is in [hardware/atm/README.md](hardware/atm/README.md).
