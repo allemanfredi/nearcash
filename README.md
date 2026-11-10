@@ -141,6 +141,40 @@ Nobody can block, freeze or switch off a banknote in someone's pocket.
 Nothing public links a buyer to a banknote: the payment goes to the reserve,
 the card is funded inside FAR, and the certificate carries only the day.
 
+## Next: a bank nobody has to trust
+
+Today the issuance server is the one part of NearCash that must be trusted:
+it holds the reserve's key, and the issuer contract believes it when it says
+a card has been funded. The contract bounds it (denominations, a daily cap,
+public counters, revocation), but it cannot check the funding itself: it
+can't see inside FAR.
+
+The issuance could run on [OutLayer](https://docs.near.org/primitives/off-chain-compute/outlayer),
+verifiable off-chain compute for NEAR: code runs inside Intel TDX enclaves,
+and every run carries an attestation of the code, its input and its output.
+
+- **The reserve's key would be born in the enclave and never leave it.**
+  OutLayer derives ed25519 keys inside the TEE and signs NEP-413 messages
+  with them, the same kind of key and signature the reserve already uses in
+  FAR. Bound to one exact build, the key signs only what that audited code
+  allows: no operator, employee or intruder could move the reserve.
+- **Only that code could have certificates signed.** It would ask for one only
+  after reading the payment's `SUCCESS` from 1Click itself, funding the card
+  inside FAR and seeing that transfer settle. An unbacked banknote would be
+  impossible to make, not just bounded.
+- **The issuance rules would hold by construction:** one payment buys one
+  card, a card is never funded twice, a refund goes back only to the address
+  that paid.
+- **It fits the issuance as it is:** a few calls to 1Click over HTTPS and one
+  NEAR call per sale, well within what an OutLayer run can do.
+
+With MPC already signing the certificates, no single party would hold a key
+that creates or moves value. What would still be trusted: Intel's hardware
+and OutLayer's attested workers (which can stop running new sales, but never
+touch banknotes already issued), 1Click's answers about payments, and the
+issuer contract's owner, whose power to add minters would have to be locked
+or time-locked.
+
 ## Deploy the ATM
 
 ```bash
