@@ -37,10 +37,20 @@ export function useSecondsLeft(deadline: string): number {
   return seconds;
 }
 
-/** "mm:ss" */
+/**
+ * Time left, in the largest units that fit: "4:05" under an hour, "1:02:03"
+ * under a day, "2 d 23 h" beyond. 1Click keeps some quotes open for days:
+ * in minutes alone that would read "4319:27".
+ */
 export function formatCountdown(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  const total = Math.max(0, Math.floor(seconds));
+  const days = Math.floor(total / 86_400);
+  const hours = Math.floor((total % 86_400) / 3_600);
+  const minutes = Math.floor((total % 3_600) / 60);
+  const twoDigits = (value: number) => String(value).padStart(2, '0');
+  if (days > 0) return `${days} d ${hours} h`;
+  if (hours > 0) return `${hours}:${twoDigits(minutes)}:${twoDigits(total % 60)}`;
+  return `${minutes}:${twoDigits(total % 60)}`;
 }
 
 /** An address shortened to its first and last characters, e.g. "0x5aAe…eAed", for a sentence. */

@@ -28,7 +28,6 @@
   --danger: #ea6b61;
   --danger-soft: rgb(234 107 97 / 0.14);
   --warn: #e8b04f;
-  --warn-soft: rgb(232 176 79 / 0.14);
 
   --radius: 18px;
   --gutter: 20px;
@@ -224,16 +223,6 @@ button:disabled {
   font-weight: 550;
 }
 
-.simulated {
-  align-self: flex-start;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--warn-soft);
-  color: var(--warn);
-  font-size: 13px;
-  font-weight: 650;
-}
-
 /* ---------------------------------------------------------------- buttons -- */
 
 .button {
@@ -410,6 +399,20 @@ button:disabled {
 }
 
 /* ------------------------------------------------------------------- PIN -- */
+
+/* OneOf: every option in the same grid cell, so the cell is as tall as the
+   longest; the hidden ones keep their space but aren't seen or read out. */
+.one-of {
+  display: grid;
+}
+
+.one-of__option {
+  grid-area: 1 / 1;
+}
+
+.one-of__option[aria-hidden='true'] {
+  visibility: hidden;
+}
 
 .pin {
   display: grid;

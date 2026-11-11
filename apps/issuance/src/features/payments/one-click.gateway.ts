@@ -63,7 +63,7 @@ export class OneClickGateway implements PaymentGateway {
       recipientType: this.recipientType,
       deadline: request.deadline.toISOString(),
     };
-    const json = await this.client.call<{ quote?: { depositAddress?: string; amountIn?: string; deadline?: string } }>(
+    const json = await this.client.call<{ quote?: { depositAddress?: string; amountIn?: string } }>(
       'POST',
       '/v0/quote',
       body,
@@ -74,7 +74,11 @@ export class OneClickGateway implements PaymentGateway {
       depositAddress: quote.depositAddress,
       amountIn: quote.amountIn,
       originAsset: request.originAsset,
-      deadline: quote.deadline ?? request.deadline.toISOString(),
+      // The deadline we asked for, not the quote's `deadline`: that one is
+      // when the deposit address stops working (3 days later, seen on
+      // 2026-11-10). Ours is when 1Click starts refunding: a deposit not
+      // swapped by then came back as QUOTE_EXPIRED right after it.
+      deadline: request.deadline.toISOString(),
     };
   }
 

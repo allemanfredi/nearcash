@@ -198,7 +198,9 @@ export function issuanceConfigFromEnvironment(env: NodeJS.ProcessEnv): IssuanceC
     reserveAccountId: env.NEARCASH_RESERVE_ACCOUNT ?? 'nearcash-reserve',
     reserveTokenId: env.NEARCASH_RESERVE_TOKEN || undefined,
     atmTokens,
-    paymentWindowMinutes: 30,
+    // A customer pays standing at the ATM: 5 minutes, then 1Click refunds
+    // whatever arrives (QUOTE_EXPIRED) and the ATM is free again.
+    paymentWindowMinutes: 5,
     salesFile: resolve(repositoryRoot, env.NEARCASH_ISSUANCE_STORE ?? 'issuance-sales.json'),
     refunds: {
       // Simulated refunds are checked more often, so a demo shows them quickly.

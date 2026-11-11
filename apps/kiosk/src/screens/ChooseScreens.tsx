@@ -21,11 +21,9 @@ export function AmountScreen({ setup, onChoose }: { setup: Setup; onChoose: (ban
           Cash you can <em>hold.</em>
         </>
       }
-      lead="Pay with crypto, take a real banknote. Anyone can check it with a phone, even offline."
+      lead="Real banknotes, with their value kept private on NEAR. Pass them from hand to hand like cash; anyone can check one with a phone, even offline."
       step={{ current: 1, total: STEPS_BEFORE_PAYING }}
     >
-      {setup.simulatedPayments && <SimulatedBadge />}
-      {setup.dummyReader && <DummyReaderBadge />}
       <p className="label">Choose a banknote</p>
       {/* Up to three banknotes: one per row. More: a grid of three per row, so all fit on the screen. */}
       <div className={setup.banknotes.length > 3 ? 'notes notes--grid' : 'notes'}>
@@ -218,14 +216,4 @@ function placeholderFor(option: PaymentOption | null): string {
     default:
       return 'Your address';
   }
-}
-
-/** Development only: says no real money moves. */
-export function SimulatedBadge() {
-  return <p className="simulated">Test mode · payments are simulated, no real money moves</p>;
-}
-
-/** Testing the mechanics with the printed dummy reader: says the card comes out blank. */
-export function DummyReaderBadge() {
-  return <p className="simulated">Test mode · dummy reader, the card comes out blank</p>;
 }

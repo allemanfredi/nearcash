@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '@nearcash/kiosk-api';
 import { Keypad } from '../components/Keypad.tsx';
 import { Screen } from '../components/Screen.tsx';
@@ -43,13 +43,21 @@ export function PinScreen({
     onPin(value);
   };
 
+  // Both texts of each step are laid out, only the current one shows: the
+  // title and the lead keep the same height on both steps, so the keypad
+  // stays in the same place when the customer types the PIN again.
+  const shown = confirming ? 1 : 0;
   return (
     <Screen
-      title={confirming ? 'Enter the PIN again' : 'Choose a PIN'}
+      title={<OneOf shown={shown} options={['Choose a PIN', 'Enter the PIN again']} />}
       lead={
-        confirming
-          ? 'To be sure it’s the one you meant.'
-          : `${PIN_MIN_LENGTH} to ${PIN_MAX_LENGTH} digits. You need it to redeem the banknote, and you tell it to whoever you give the banknote to.`
+        <OneOf
+          shown={shown}
+          options={[
+            `${PIN_MIN_LENGTH} to ${PIN_MAX_LENGTH} digits. You need it to redeem the banknote, and you tell it to whoever you give the banknote to.`,
+            'To be sure it’s the one you meant.',
+          ]}
+        />
       }
       step={{ current: 3, total: STEPS_BEFORE_PAYING }}
       onBack={busy ? undefined : onBack}
@@ -78,5 +86,21 @@ export function PinScreen({
       {mismatch && <p className="error">The two PINs didn’t match. Choose it again.</p>}
       {error && <p className="error">{error}</p>}
     </Screen>
+  );
+}
+
+/**
+ * Several texts stacked in the same spot, only `options[shown]` visible. The
+ * spot is as tall as the longest text, whichever one shows.
+ */
+function OneOf({ options, shown }: { options: ReactNode[]; shown: number }) {
+  return (
+    <span className="one-of">
+      {options.map((option, index) => (
+        <span key={index} className="one-of__option" aria-hidden={index !== shown}>
+          {option}
+        </span>
+      ))}
+    </span>
   );
 }

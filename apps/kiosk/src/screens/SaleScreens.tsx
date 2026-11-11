@@ -10,7 +10,6 @@ import { LottiePlayer } from '../components/LottiePlayer.tsx';
 import { QrCode } from '../components/QrCode.tsx';
 import { Screen } from '../components/Screen.tsx';
 import { formatCountdown, shortAddress, useSecondsLeft } from '../hooks.ts';
-import { DummyReaderBadge, SimulatedBadge } from './ChooseScreens.tsx';
 
 /** Stages that mean the payment has arrived. */
 const PAID_STAGES: ReadonlySet<Stage> = new Set(['preparing', 'certifying', 'writing', 'dispensing', 'dispensed']);
@@ -38,7 +37,7 @@ export function SaleScreen({
 
   switch (session.stage) {
     case 'awaiting_payment':
-      return <PayScreen session={session} dummyReader={dummyReader} onCancel={onCancel} onSimulatePayment={onSimulatePayment} />;
+      return <PayScreen session={session} onCancel={onCancel} onSimulatePayment={onSimulatePayment} />;
     case 'preparing':
     case 'certifying':
     case 'writing':
@@ -79,12 +78,10 @@ function useDepositCelebration(stage: Stage): { active: boolean; end: () => void
 
 function PayScreen({
   session,
-  dummyReader,
   onCancel,
   onSimulatePayment,
 }: {
   session: SessionView;
-  dummyReader: boolean;
   onCancel: () => Promise<void>;
   onSimulatePayment: () => Promise<void>;
 }) {
@@ -140,8 +137,6 @@ function PayScreen({
         ) : undefined
       }
     >
-      {payment.simulated && <SimulatedBadge />}
-      {dummyReader && <DummyReaderBadge />}
       <div className="pay">
         <QrCode text={payment.depositAddress} label={`Deposit address on ${payment.network}`} />
       </div>

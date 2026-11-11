@@ -55,6 +55,24 @@ describe('OneClickGateway', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ refundTo: 'reserve.far', refundType: 'CONFIDENTIAL_INTENTS' });
   });
 
+  it('the sale keeps the deadline it asked for, not the later one 1Click returns (when the deposit address stops working)', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ quote: { depositAddress: '0xdeposit', amountIn: '1', deadline: '2026-11-06T18:05:00Z' } })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await new OneClickGateway({ apiKey: 'partner-jwt' }).createQuote({
+      originAsset: 'nep141:base-usdc',
+      destinationAsset: 'imt:bank:nep141:usdc',
+      amountOut: 5_000_000n,
+      recipient: 'reserve.far',
+      refund: { kind: 'reserve' },
+      deadline: new Date('2026-11-03T18:05:00Z'),
+    });
+    expect(quote.deadline).toBe('2026-11-03T18:05:00.000Z');
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).deadline).toBe('2026-11-03T18:05:00.000Z');
+  });
+
   it('a dry-run check sends dry: true and needs no deposit address', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ quote: { amountIn: '5050923' } })));
     vi.stubGlobal('fetch', fetchMock);
