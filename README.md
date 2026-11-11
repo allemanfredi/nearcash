@@ -47,18 +47,21 @@ people, offline, nothing recorded on a server or on-chain.
 ![How a banknote is made, then redeemed, step by step](docs/images/sale-flow.svg)
 
 **The banknote** (`applet/`) is an NFC Java Card (NXP JCOP4 J3R180) running
-the NearCash applet. Its two keys are born in the chip and never leave it:
+the NearCash applet. Its keys are born in the chip and never leave it:
 key **A** proves the card is genuine, key **F** owns the card's account on
-FAR and signs exactly once, with the holder's PIN, to redeem it. A card goes
-from blank, to issued, to spent, and never back.
+FAR and signs exactly once, with the holder's PIN, to redeem it. Key **C**
+is made at the bank's factory, where the bank's offline production key signs
+it (the card's birth certificate): C signs A and F when they are born, so
+only keys from a chip the bank made can be certified. A card goes from
+blank, to issued, to spent, and never back.
 
 **The issuance server** (`apps/issuance`) is the bank: the only place where
 banknotes get their value. For each sale it asks 1Click for a quote that pays
 the bank's reserve inside FAR (in USDC, on any chain, the customer sends
 exactly the banknote's value: the bank pays the conversion), checks the
-payment itself (it never believes an ATM), moves the banknote's value from
-the reserve to the card's own account, and has the certificate signed. One
-payment buys exactly one card.
+payment itself (it never believes an ATM), checks the card's birth
+certificate, moves the banknote's value from the reserve to the card's own
+account, and has the certificate signed. One payment buys exactly one card.
 It also gives back what can't become a banknote (a failed swap, a payment
 after the deadline, an overpayment): the money returns to the address that
 paid, on the same chain and in the same token. Amounts smaller than the
@@ -73,7 +76,8 @@ server or person ever holds it whole. There is no key file to steal and no
 employee who could leak it: forging banknotes would mean compromising enough
 of those nodes at the same time, far harder than breaking into one bank
 server. Breaking into the issuance server gives only what the contract
-allows, because it also bounds the bank: only set denominations, a daily cap,
+allows, because it also bounds the bank: only chips the bank made, each
+certified once, only set denominations, a daily cap,
 the issue date rounded to the day, public counters, and access that can be
 revoked at once, without changing the key in any wallet.
 
@@ -147,9 +151,9 @@ the card is funded inside FAR, and the certificate carries only the day.
 
 Today the issuance server is the one part of NearCash that must be trusted:
 it holds the reserve's key, and the issuer contract believes it when it says
-a card has been funded. The contract bounds it (denominations, a daily cap,
-public counters, revocation), but it cannot check the funding itself: it
-can't see inside FAR.
+a card has been funded. The contract bounds it (only chips the bank made,
+denominations, a daily cap, public counters, revocation), but it cannot
+check the funding itself: it can't see inside FAR.
 
 The issuance could run on [OutLayer](https://docs.near.org/primitives/off-chain-compute/outlayer),
 verifiable off-chain compute for NEAR: code runs inside Intel TDX enclaves,
