@@ -1,7 +1,9 @@
 /**
  * What a customer can pay with at the ATM: a token on a chain, as 1Click
  * knows it. The issuance server turns any of these into the banknote's
- * token in the bank's reserve (1Click quote, EXACT_OUTPUT).
+ * token in the bank's reserve (1Click quote). USDC, on any chain, is taken
+ * at face value: the customer sends exactly the banknote's value
+ * (apps/issuance/src/features/sales/face-value.ts).
  *
  * Asset ids and decimals checked against the live 1Click token list
  * (GET https://1click.chaindefuser.com/v0/tokens) on 2026-11-04.

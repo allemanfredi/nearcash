@@ -249,7 +249,12 @@ no funds, no certificate. Value is created only by the issuance server, after it
 1. The user picks a denomination, the network and token to pay with, and a
    PIN. The **issuance server** makes a 1Click quote whose recipient is the
    bank's reserve inside FAR (confidential); the display shows the deposit
-   address as a QR code.
+   address as a QR code. A user paying in USDC, on any chain, sends exactly
+   the banknote's value (`EXACT_INPUT`): the bank pays the conversion into
+   the reserve's token, about 0.02 %, and the reserve keeps a little of that
+   token to cover it. With any other token (ETH, SOL) the reserve receives
+   exactly the value (`EXACT_OUTPUT`) and the user pays the conversion, plus
+   a 1 % margin that 1Click refunds if unused.
 2. The user pays. The **issuance server** reads `SUCCESS` from 1Click itself.
 3. The ATM takes a blank card: SELECT, GENERATE_KEYS → A, F.
 4. The issuance server transfers the value from the reserve to the card's own account

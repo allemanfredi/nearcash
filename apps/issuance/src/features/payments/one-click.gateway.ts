@@ -50,13 +50,17 @@ export class OneClickGateway implements PaymentGateway {
         : { refundTo: request.recipient, refundType: this.recipientType };
     const body = {
       dry,
-      // The reserve must receive exactly the banknote's value.
-      swapType: 'EXACT_OUTPUT',
+      // customer: the reserve receives exactly the banknote's value; the
+      //   customer is asked for it plus the conversion and the margin.
+      // bank: the customer sends exactly the banknote's value; the margin
+      //   caps what the reserve can lose on the conversion (a bigger price
+      //   move fails the swap, and 1Click refunds the customer).
+      swapType: request.conversionPaidBy === 'bank' ? 'EXACT_INPUT' : 'EXACT_OUTPUT',
       slippageTolerance: this.slippageBasisPoints,
       originAsset: request.originAsset,
       depositType: 'ORIGIN_CHAIN',
       destinationAsset: request.destinationAsset,
-      amount: request.amountOut.toString(),
+      amount: request.amount.toString(),
       // A refund never goes to a card: to the customer, or to the reserve.
       ...refund,
       recipient: request.recipient,

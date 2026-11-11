@@ -19,6 +19,7 @@ import { systemClock } from '../src/common/clock.ts';
 import { DomainError } from '../src/common/domain-error.ts';
 import type { IssuanceConfig } from '../src/config/issuance-config.ts';
 import { CertificatesService } from '../src/features/certificates/certificates.service.ts';
+import type { QuoteRequest } from '../src/features/payments/payment-gateway.port.ts';
 import { SimulatedGateway } from '../src/features/payments/simulated.gateway.ts';
 import { SalesService } from '../src/features/sales/sales.service.ts';
 import { JsonFileSaleRepository } from '../src/features/sales/json-file-sale.repository.ts';
@@ -63,13 +64,40 @@ describe('selling a banknote', () => {
     const withAddress = await sales.createSale({ amount: TEN, originAsset: 'base:usdc', refundTo: '0xuser' });
     const withoutAddress = await sales.createSale({ amount: TEN, originAsset: 'base:usdc' });
     expect(quotes).toMatchObject([
-      { amountOut: TEN, recipient: 'bank-reserve.far', refund: { kind: 'customer', address: '0xuser' } },
-      { amountOut: TEN, recipient: 'bank-reserve.far', refund: { kind: 'reserve' } },
+      { amount: TEN, recipient: 'bank-reserve.far', refund: { kind: 'customer', address: '0xuser' } },
+      { amount: TEN, recipient: 'bank-reserve.far', refund: { kind: 'reserve' } },
     ]);
     // The refund address is remembered (it tells the refunds feature to stay out), never shown to ATMs.
     expect(repository.get(withAddress.id)?.refundTo).toBe('0xuser');
     expect(repository.get(withoutAddress.id)?.refundTo).toBeUndefined();
     expect(JSON.stringify(withAddress)).not.toContain('0xuser');
+  });
+
+  it('USDC is taken at face value (the bank pays the conversion); any other token, the customer pays it', async () => {
+    const usdc = {
+      ethereum: 'nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near',
+      base: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near',
+    };
+    const gateway = new SimulatedGateway();
+    const quotes: QuoteRequest[] = [];
+    const createQuote = gateway.createQuote.bind(gateway);
+    gateway.createQuote = async (request) => {
+      quotes.push(request);
+      return createQuote(request);
+    };
+    // The reserve holds USDC on Ethereum, as NEARCASH_RESERVE_TOKEN says.
+    const config = { ...CONFIG, reserveTokenId: usdc.ethereum } as IssuanceConfig;
+    const certificates = new CertificatesService(new TestAuthority());
+    const sales = new SalesService(new JsonFileSaleRepository(undefined), gateway, new CountingReserve(), certificates, systemClock, config);
+
+    await sales.createSale({ amount: TEN, originAsset: usdc.base }); // another USDC
+    await sales.createSale({ amount: TEN, originAsset: usdc.ethereum }); // the reserve's own token
+    await sales.createSale({ amount: TEN, originAsset: 'nep141:eth.omft.near' }); // ETH: its price moves
+    expect(quotes.map((quote) => [quote.destinationAsset, quote.conversionPaidBy])).toEqual([
+      [usdc.ethereum, 'bank'],
+      [usdc.ethereum, 'bank'],
+      [usdc.ethereum, 'customer'],
+    ]);
   });
 
   it('no payment, no banknote — and the card is not bound to the sale', async () => {

@@ -18,7 +18,8 @@ describe('OneClickGateway', () => {
     const quote = await gateway.createQuote({
       originAsset: 'nep141:base-usdc',
       destinationAsset: 'imt:bank:nep141:usdc',
-      amountOut: 5_000_000n,
+      amount: 5_000_000n,
+      conversionPaidBy: 'customer',
       recipient: 'reserve.far',
       refund: { kind: 'customer', address: '0xuser' },
       deadline: new Date('2026-11-03T18:00:00Z'),
@@ -46,13 +47,31 @@ describe('OneClickGateway', () => {
     await new OneClickGateway({ apiKey: 'partner-jwt' }).createQuote({
       originAsset: 'nep141:base-usdc',
       destinationAsset: 'imt:bank:nep141:usdc',
-      amountOut: 5_000_000n,
+      amount: 5_000_000n,
+      conversionPaidBy: 'customer',
       recipient: 'reserve.far',
       refund: { kind: 'reserve' },
       deadline: new Date('2026-11-03T18:00:00Z'),
     });
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toMatchObject({ refundTo: 'reserve.far', refundType: 'CONFIDENTIAL_INTENTS' });
+  });
+
+  it('a payment taken at face value: the customer sends exactly the banknote value (EXACT_INPUT), the bank pays the conversion', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ quote: { depositAddress: '0xdeposit', amountIn: '5000000' } })));
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await new OneClickGateway({ apiKey: 'partner-jwt' }).createQuote({
+      originAsset: 'nep141:base-usdc',
+      destinationAsset: 'nep141:eth-usdc',
+      amount: 5_000_000n,
+      conversionPaidBy: 'bank',
+      recipient: 'reserve.far',
+      refund: { kind: 'reserve' },
+      deadline: new Date('2026-11-03T18:00:00Z'),
+    });
+    expect(quote.amountIn).toBe('5000000');
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ swapType: 'EXACT_INPUT', amount: '5000000' });
   });
 
   it('the sale keeps the deadline it asked for, not the later one 1Click returns (when the deposit address stops working)', async () => {
@@ -63,7 +82,8 @@ describe('OneClickGateway', () => {
     const quote = await new OneClickGateway({ apiKey: 'partner-jwt' }).createQuote({
       originAsset: 'nep141:base-usdc',
       destinationAsset: 'imt:bank:nep141:usdc',
-      amountOut: 5_000_000n,
+      amount: 5_000_000n,
+      conversionPaidBy: 'customer',
       recipient: 'reserve.far',
       refund: { kind: 'reserve' },
       deadline: new Date('2026-11-03T18:05:00Z'),
@@ -79,7 +99,8 @@ describe('OneClickGateway', () => {
     const result = await new OneClickGateway({}).checkQuote({
       originAsset: 'a',
       destinationAsset: 'b',
-      amountOut: 1n,
+      amount: 1n,
+      conversionPaidBy: 'customer',
       recipient: 'r',
       refund: { kind: 'reserve' },
       deadline: new Date(),
@@ -98,7 +119,8 @@ describe('OneClickGateway', () => {
       new OneClickGateway({}).createQuote({
         originAsset: 'a',
         destinationAsset: 'b',
-        amountOut: 1n,
+        amount: 1n,
+      conversionPaidBy: 'customer',
         recipient: 'r',
         refund: { kind: 'reserve' },
         deadline: new Date(),

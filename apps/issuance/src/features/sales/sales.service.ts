@@ -3,7 +3,9 @@
  *
  * Rules, each enforced here and covered by test/sales.service.test.ts:
  *  1. Only the issuance server creates quotes; the recipient is always the
- *     bank's reserve. A refund goes to the address the customer gave or,
+ *     bank's reserve. A customer paying in USDC sends exactly the banknote's
+ *     value and the bank pays the conversion (face-value.ts); with any other
+ *     token the customer pays it. A refund goes to the address the customer gave or,
  *     without one, into the reserve, which sends it back to the address
  *     the payment came from (features/refunds). Never to a card.
  *  2. A card is funded and certified only after the server itself has read
@@ -32,6 +34,7 @@ import { ISSUANCE_CONFIG, type IssuanceConfig } from '../../config/issuance-conf
 import { CertificatesService } from '../certificates/certificates.service.ts';
 import { PAYMENT_GATEWAY, type PaymentGateway } from '../payments/payment-gateway.port.ts';
 import { RESERVE, type Reserve } from '../reserve/reserve.port.ts';
+import { payableAtFaceValue } from './face-value.ts';
 import { type SaleRecord, toPublicSale } from './sale-record.ts';
 import { SALE_REPOSITORY, type SaleRepository } from './sale-repository.port.ts';
 
@@ -52,16 +55,20 @@ export class SalesService {
     @Inject(ISSUANCE_CONFIG) private readonly config: IssuanceConfig,
   ) {}
 
-  /** Rule 1: a quote paying the reserve exactly the banknote's value. */
+  /** Rule 1: a quote paying the reserve the banknote's value. */
   async createSale(request: CreateSaleRequest): Promise<Sale> {
     const denomination = await this.certificates.denomination(request.amount);
     if (!request.originAsset) throw new DomainError('invalid-request', 'originAsset is required');
 
+    const reserveAsset = this.reserveToken(denomination.tokenId);
     const deadline = new Date(this.clock.now().getTime() + this.config.paymentWindowMinutes * 60_000);
     const quote = await this.gateway.createQuote({
       originAsset: request.originAsset,
-      destinationAsset: this.reserveToken(denomination.tokenId),
-      amountOut: request.amount,
+      destinationAsset: reserveAsset,
+      amount: request.amount,
+      // USDC is taken at face value: no hidden fee on the kiosk. The reserve
+      // keeps a little of its own token to cover the conversion.
+      conversionPaidBy: payableAtFaceValue(request.originAsset, reserveAsset) ? 'bank' : 'customer',
       recipient: this.config.reserveAccountId,
       refund: request.refundTo ? { kind: 'customer', address: request.refundTo } : { kind: 'reserve' },
       deadline,

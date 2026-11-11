@@ -27,6 +27,7 @@ import { SkipMpcCertificateAuthority } from './features/certificates/skip-mpc-ce
 import { OneClickGateway } from './features/payments/one-click.gateway.ts';
 import { FarReserve } from './features/reserve/far.reserve.ts';
 import { RESERVE, type Reserve } from './features/reserve/reserve.port.ts';
+import { payableAtFaceValue } from './features/sales/face-value.ts';
 
 const env = loadIssuanceEnvironment();
 const config = issuanceConfigFromEnvironment(env);
@@ -75,11 +76,13 @@ const referenceAsset =
 for (const amount of await authority.denominations()) {
   const denomination = await authority.denomination(amount);
   const label = `${formatAmount(amount, denomination.decimals)} ${denomination.symbol}`;
+  // What the sales service asks for (NEARCASH_RESERVE_TOKEN, or the contract's token).
+  const destinationAsset = config.reserveTokenId ?? denomination.tokenId;
   const request = {
     originAsset,
-    // What the sales service asks for (NEARCASH_RESERVE_TOKEN, or the contract's token).
-    destinationAsset: config.reserveTokenId ?? denomination.tokenId,
-    amountOut: amount,
+    destinationAsset,
+    amount,
+    conversionPaidBy: payableAtFaceValue(originAsset, destinationAsset) ? ('bank' as const) : ('customer' as const),
     recipient: config.reserveAccountId,
     refund: refundTo ? ({ kind: 'customer', address: refundTo } as const) : ({ kind: 'reserve' } as const),
     deadline: new Date(Date.now() + 30 * 60_000),

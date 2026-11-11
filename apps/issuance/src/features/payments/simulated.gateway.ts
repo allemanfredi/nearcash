@@ -16,7 +16,7 @@ export class SimulatedGateway implements PaymentGateway {
   async createQuote(request: QuoteRequest): Promise<PaymentQuote> {
     this.counter += 1;
     const depositAddress = `sim-deposit-${Date.now().toString(36)}-${this.counter}`;
-    const amountIn = request.amountOut; // 1:1, no swap
+    const amountIn = request.amount; // 1:1, no swap
     this.deposits.set(depositAddress, { amountIn, status: 'PENDING', refundedAmount: 0n, transactions: [] });
     return {
       depositAddress,

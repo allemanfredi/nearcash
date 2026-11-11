@@ -32,8 +32,19 @@ export type QuoteRequest = {
   originAsset: string;
   /** Asset the reserve must receive: the banknote's token. */
   destinationAsset: string;
-  /** Exactly this much must reach the reserve (EXACT_OUTPUT). */
-  amountOut: bigint;
+  /** The banknote's value, smallest unit of the reserve's token. */
+  amount: bigint;
+  /**
+   * Who pays the conversion into the reserve's token:
+   *   customer  the reserve receives exactly `amount`; the customer is asked
+   *             a little more: the conversion, plus a margin in case the
+   *             price moves (the unused part is refunded)
+   *   bank      the customer sends exactly `amount`, in a token worth the
+   *             same as the reserve's (USDC on another chain); the reserve
+   *             receives what the conversion leaves, and adds the rest from
+   *             its own balance when it funds the card
+   */
+  conversionPaidBy: 'customer' | 'bank';
   /** The bank's reserve account inside FAR. */
   recipient: string;
   refund: RefundDestination;

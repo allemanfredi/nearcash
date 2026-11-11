@@ -16,6 +16,7 @@
     "issuance:start": "pnpm --filter @nearcash/issuance start",
     "issuance:build": "pnpm --filter @nearcash/issuance build",
     "issuance:check": "pnpm --filter @nearcash/issuance check",
+    "issuance:fund-reserve": "pnpm --filter @nearcash/issuance fund-reserve",
     "atm:start": "pnpm --filter @nearcash/atm start",
     "atm:build": "pnpm --filter @nearcash/atm build",
     "atm:demo": "bash scripts/atm-demo.sh",
