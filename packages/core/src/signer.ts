@@ -11,6 +11,7 @@
  */
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import type { BirthProof } from './birth.ts';
 import type { CertificateFields } from './certificate.ts';
 
 /** What a signer is asked to sign. */
@@ -19,6 +20,12 @@ export type CertificateSigningRequest = {
   fields: CertificateFields;
   /** The body built from them (protocol.md §8). The signature must cover SHA-256(body). */
   body: Uint8Array;
+  /**
+   * The card's birth certificate (protocol.md §5.8). The issuer contract
+   * requires it; local signers (DEV key) ignore it: the issuance server has
+   * checked it already, unless birth certificates are skipped for a demo.
+   */
+  birth?: BirthProof;
 };
 
 export interface CertificateSigner {

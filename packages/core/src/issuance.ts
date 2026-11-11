@@ -1,7 +1,8 @@
 /**
  * Issuance (docs/protocol.md §9): how a blank card becomes a banknote.
  *
- *   prepareCard()        ATM:  the card creates A and F; we learn its account
+ *   prepareCard()        ATM:  the card creates A and F (a born chip signs them);
+ *                              we learn its account and its birth certificate
  *   …the issuance server funds that account inside FAR and has MPC sign the certificate…
  *   writeCertificate()   ATM:  store the certificate, set the holder's PIN,
  *                              then check the card exactly as a receiver would
@@ -9,6 +10,7 @@
  * The ATM never signs anything: see sale.ts for the whole sale.
  * personalizeCard() does both halves in one place, for tests and dev tools.
  */
+import { type BirthProof, toBirthProof } from './birth.ts';
 import type { CardKeys, NearCashCard } from './card.ts';
 import { type Certificate, decodeCertificate, issueCertificate, issueDay } from './certificate.ts';
 import { ethereumAddress } from './eth.ts';
@@ -32,17 +34,32 @@ export type PreparedCard = {
   keys: CardKeys;
   /** Intents account id of the card (Ethereum address of F): fund this. */
   accountId: string;
+  /**
+   * Its birth certificate and the chip's signature over A and F (protocol.md
+   * §5.8). Absent for a card that was never born: only demos without birth
+   * certificates (NEARCASH_SKIP_BIRTH) accept it.
+   */
+  birth?: BirthProof;
 };
 
-/** Step 1: the card generates its keys. Only works on a blank (EMPTY) card. */
+/**
+ * Step 1: the card generates its keys. Only works on a blank (EMPTY) card.
+ * A born card signs them with its chip key: the issuer checks that proof.
+ */
 export async function prepareCard(card: NearCashCard): Promise<PreparedCard> {
   await card.select();
   const info = await card.info();
   if (info.state !== CardState.EMPTY) {
     throw new Error(`cannot issue: card is ${cardStateName(info.state)}, expected EMPTY`);
   }
-  const keys = await card.generateKeys();
-  return { keys, accountId: ethereumAddress(keys.fundsPublicKey) };
+  const birth = await card.readBirth();
+  const { keysSignature, ...keys } = await card.generateKeys();
+  const prepared: PreparedCard = { keys, accountId: ethereumAddress(keys.fundsPublicKey) };
+  if (birth) {
+    if (!keysSignature) throw new Error('the card is born but did not sign its keys');
+    prepared.birth = toBirthProof(birth.chipPublicKey, birth.birthSignature, keysSignature);
+  }
+  return prepared;
 }
 
 /**

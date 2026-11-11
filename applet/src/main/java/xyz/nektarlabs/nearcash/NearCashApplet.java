@@ -19,13 +19,18 @@ import javacard.security.Signature;
  * <p>Full specification: {@code docs/protocol.md}. Every constant and every
  * byte layout in this file must match that document.
  *
- * <p>The card holds two secp256k1 key pairs generated on-chip:
+ * <p>The card holds three secp256k1 key pairs generated on-chip:
  * <ul>
  *   <li><b>F</b> (funds): controls the card's account on NEAR Intents. It signs
  *       exactly once (SIGN_ONCE, PIN protected); the card is marked spent in
  *       the same atomic transaction that stores the signature.</li>
  *   <li><b>A</b> (auth): answers AUTH challenges so anyone can check, offline,
  *       that the card is genuine and unspent.</li>
+ *   <li><b>C</b> (chip): created at the factory (CHIP_KEY), before the card is
+ *       sold. The bank's production key signs it: the chip's birth
+ *       certificate (STORE_BIRTH). C signs A and F once, when GENERATE_KEYS
+ *       creates them, so the issuer only certifies keys born inside a genuine
+ *       NearCash chip.</li>
  * </ul>
  *
  * <p>Java Card coding rules followed here: only {@code byte} and {@code short}
@@ -39,18 +44,21 @@ public final class NearCashApplet extends Applet {
     // Protocol constants (docs/protocol.md, sections 3–6)
     // ------------------------------------------------------------------
 
-    static final byte PROTOCOL_VERSION = 0x01;
+    static final byte PROTOCOL_VERSION = 0x02;
 
     static final byte CLA_NEARCASH = (byte) 0x80;
 
     static final byte INS_INFO = (byte) 0x10;
     static final byte INS_GET_CERT = (byte) 0x12;
+    static final byte INS_GET_BIRTH = (byte) 0x14;
     static final byte INS_AUTH = (byte) 0x20;
     static final byte INS_SIGN_ONCE = (byte) 0x30;
     static final byte INS_CHANGE_PIN = (byte) 0x32;
     static final byte INS_GENERATE_KEYS = (byte) 0x40;
     static final byte INS_STORE_CERT = (byte) 0x42;
     static final byte INS_FINALIZE = (byte) 0x44;
+    static final byte INS_CHIP_KEY = (byte) 0x50;
+    static final byte INS_STORE_BIRTH = (byte) 0x52;
 
     static final byte STATE_EMPTY = 0x00;
     static final byte STATE_KEYS_GENERATED = 0x01;
@@ -72,6 +80,15 @@ public final class NearCashApplet extends Applet {
     /** Longest DER encoding of a secp256k1 ECDSA signature. */
     static final short MAX_SIGNATURE_LENGTH = 72;
 
+    /** Compressed SEC1 public key: 0x02/0x03 (parity of Y) || X (32). */
+    static final short COMPRESSED_KEY_LENGTH = 33;
+
+    /**
+     * The birth signature: the bank's production key over the birth message
+     * (protocol.md §5.8), compact r || s. The card stores it, opaque.
+     */
+    static final short BIRTH_SIGNATURE_LENGTH = 64;
+
     /** ISO 7816-4 "PIN blocked" (authentication method blocked). */
     static final short SW_PIN_BLOCKED = (short) 0x6983;
 
@@ -88,8 +105,17 @@ public final class NearCashApplet extends Applet {
     };
 
     /**
+     * Domain tag of the keys message C signs at GENERATE_KEYS: ASCII
+     * "NBK-KEYS-v1" (protocol.md §5.8).
+     */
+    private static final byte[] KEYS_DOMAIN_TAG = {
+        0x4E, 0x42, 0x4B, 0x2D, 0x4B, 0x45, 0x59, 0x53, 0x2D, 0x76, 0x31
+    };
+
+    /**
      * RAM buffer size: large enough for the AUTH message
-     * (tag + 64-byte challenge + state = 76 bytes) and for one DER signature.
+     * (tag + 64-byte challenge + state = 76 bytes), for the keys message
+     * (tag + two compressed keys = 77 bytes) and for one DER signature.
      */
     private static final short SCRATCH_LENGTH = 128;
 
@@ -125,6 +151,21 @@ public final class NearCashApplet extends Applet {
     private final byte[] spentDigest;
     private final byte[] spentSignature;
     private short spentSignatureLength;
+
+    /** C, the chip key (protocol.md §5.8). Generated once, by CHIP_KEY. */
+    private final ECPublicKey chipPublicKey;
+    private final ECPrivateKey chipPrivateKey;
+    private final KeyPair chipKeyPair;
+    private final Signature chipSigner;
+    private boolean chipKeyGenerated;
+
+    /** The birth signature (STORE_BIRTH), and whether the card has one. */
+    private final byte[] birthSignature;
+    private boolean born;
+
+    /** C's signature over A and F (GENERATE_KEYS on a born card); length 0 until then. */
+    private final byte[] keysSignature;
+    private short keysSignatureLength;
 
     // ------------------------------------------------------------------
     // Transient state (RAM), cleared when the applet is deselected.
@@ -164,6 +205,22 @@ public final class NearCashApplet extends Applet {
         spentDigest = new byte[DIGEST_LENGTH];
         spentSignature = new byte[MAX_SIGNATURE_LENGTH];
         spentSignatureLength = 0;
+
+        chipPublicKey = (ECPublicKey) KeyBuilder.buildKey(
+                KeyBuilder.TYPE_EC_FP_PUBLIC, Secp256k1.KEY_LENGTH_BITS, false);
+        chipPrivateKey = (ECPrivateKey) KeyBuilder.buildKey(
+                KeyBuilder.TYPE_EC_FP_PRIVATE, Secp256k1.KEY_LENGTH_BITS, false);
+        Secp256k1.setParameters(chipPublicKey);
+        Secp256k1.setParameters(chipPrivateKey);
+        chipKeyPair = new KeyPair(chipPublicKey, chipPrivateKey);
+        chipSigner = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        chipKeyGenerated = false;
+
+        birthSignature = new byte[BIRTH_SIGNATURE_LENGTH];
+        born = false;
+
+        keysSignature = new byte[MAX_SIGNATURE_LENGTH];
+        keysSignatureLength = 0;
 
         scratch = JCSystem.makeTransientByteArray(SCRATCH_LENGTH, JCSystem.CLEAR_ON_DESELECT);
 
@@ -215,6 +272,15 @@ public final class NearCashApplet extends Applet {
                 break;
             case INS_FINALIZE:
                 processFinalize(apdu);
+                break;
+            case INS_CHIP_KEY:
+                processChipKey(apdu);
+                break;
+            case INS_STORE_BIRTH:
+                processStoreBirth(apdu);
+                break;
+            case INS_GET_BIRTH:
+                processGetBirth(apdu);
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -400,18 +466,40 @@ public final class NearCashApplet extends Applet {
     private void processGenerateKeys(APDU apdu) {
         requireState(STATE_EMPTY, STATE_EMPTY);
 
-        // If power is lost before the state change below, the card is still
-        // EMPTY and both pairs are simply generated again. No funds can be
-        // attached to a key before this command has fully completed.
+        // If power is lost before the commit below, the card is still EMPTY
+        // and both pairs are simply generated again. No funds can be attached
+        // to a key before this command has fully completed.
         authKeyPair.genKeyPair();
         fundsKeyPair.genKeyPair();
-        state = STATE_KEYS_GENERATED;
 
-        // Response: pubA (65) || pubF (65)
+        // Response: pubA (65) || pubF (65) [|| C's signature over them, DER]
         byte[] buffer = apdu.getBuffer();
         short offset = authPublicKey.getW(buffer, (short) 0);
         offset = (short) (offset + fundsPublicKey.getW(buffer, offset));
-        apdu.setOutgoingAndSend((short) 0, offset);
+
+        // A born chip vouches for the keys it has just created: C signs
+        // "NBK-KEYS-v1" || compressed A || compressed F (protocol.md §5.8).
+        short signatureLength = 0;
+        if (born) {
+            short messageLength = Util.arrayCopyNonAtomic(
+                    KEYS_DOMAIN_TAG, (short) 0, scratch, (short) 0, (short) KEYS_DOMAIN_TAG.length);
+            messageLength = compressPublicKey(buffer, (short) 0, scratch, messageLength);
+            messageLength = compressPublicKey(buffer, PUBLIC_KEY_LENGTH, scratch, messageLength);
+            chipSigner.init(chipPrivateKey, Signature.MODE_SIGN);
+            signatureLength = chipSigner.sign(scratch, (short) 0, messageLength, buffer, offset);
+        }
+
+        // Keys signature and new state together: GET_BIRTH can always give
+        // back the signature of the keys the card reports.
+        JCSystem.beginTransaction();
+        if (born) {
+            Util.arrayCopy(buffer, offset, keysSignature, (short) 0, signatureLength);
+            keysSignatureLength = signatureLength;
+        }
+        state = STATE_KEYS_GENERATED;
+        JCSystem.commitTransaction();
+
+        apdu.setOutgoingAndSend((short) 0, (short) (offset + signatureLength));
     }
 
     private void processStoreCertificate(APDU apdu) {
@@ -466,8 +554,77 @@ public final class NearCashApplet extends Applet {
     }
 
     // ------------------------------------------------------------------
+    // Birth — protocol.md §5.8
+    // ------------------------------------------------------------------
+
+    /**
+     * CHIP_KEY: creates C the first time, then answers the same key again
+     * (a factory that lost the answer simply asks again). Only while the
+     * card is EMPTY: a card that already has its banknote keys can no longer
+     * be born.
+     */
+    private void processChipKey(APDU apdu) {
+        requireState(STATE_EMPTY, STATE_EMPTY);
+        if (!chipKeyGenerated) {
+            // Power lost before the flag is set: C is generated again next time.
+            chipKeyPair.genKeyPair();
+            chipKeyGenerated = true;
+        }
+        byte[] buffer = apdu.getBuffer();
+        short length = chipPublicKey.getW(buffer, (short) 0);
+        apdu.setOutgoingAndSend((short) 0, length);
+    }
+
+    /**
+     * STORE_BIRTH: keeps the birth signature, once. The card cannot check it
+     * (it does not know the production key): the issuer does, together with
+     * the keys signature.
+     */
+    private void processStoreBirth(APDU apdu) {
+        requireState(STATE_EMPTY, STATE_EMPTY);
+        if (!chipKeyGenerated || born) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        short length = receiveCommandData(apdu);
+        if (length != BIRTH_SIGNATURE_LENGTH) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        JCSystem.beginTransaction();
+        Util.arrayCopy(apdu.getBuffer(), apdu.getOffsetCdata(), birthSignature, (short) 0, BIRTH_SIGNATURE_LENGTH);
+        born = true;
+        JCSystem.commitTransaction();
+    }
+
+    /**
+     * GET_BIRTH: pubC (65) || birth signature (64) [|| keys signature, DER,
+     * once GENERATE_KEYS has run]. In every state, once the card is born.
+     */
+    private void processGetBirth(APDU apdu) {
+        if (!born) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        byte[] buffer = apdu.getBuffer();
+        short offset = chipPublicKey.getW(buffer, (short) 0);
+        offset = Util.arrayCopyNonAtomic(birthSignature, (short) 0, buffer, offset, BIRTH_SIGNATURE_LENGTH);
+        offset = Util.arrayCopyNonAtomic(keysSignature, (short) 0, buffer, offset, keysSignatureLength);
+        apdu.setOutgoingAndSend((short) 0, offset);
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    /**
+     * Writes the compressed form of the uncompressed key at {@code source}
+     * (0x04 || X || Y) to {@code target}: 0x02 or 0x03 (parity of Y) || X.
+     * Returns the offset just after it.
+     */
+    private static short compressPublicKey(byte[] source, short sourceOffset, byte[] target, short targetOffset) {
+        byte lastByteOfY = source[(short) (sourceOffset + PUBLIC_KEY_LENGTH - 1)];
+        target[targetOffset] = (byte) (0x02 | (lastByteOfY & 0x01));
+        return Util.arrayCopyNonAtomic(source, (short) (sourceOffset + 1), target, (short) (targetOffset + 1),
+                (short) (COMPRESSED_KEY_LENGTH - 1));
+    }
 
     /**
      * Throws 6985 unless the current state is one of the two given states.

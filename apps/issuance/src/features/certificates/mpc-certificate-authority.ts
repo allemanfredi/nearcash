@@ -27,6 +27,11 @@ export class MpcCertificateAuthority implements CertificateAuthority {
     return this.signer.denominations();
   }
 
+  /** The issuer contract's production key: it checks every chip's birth with it too. */
+  productionPublicKey(): Promise<Uint8Array> {
+    return this.signer.productionPublicKey();
+  }
+
   /** The contract's configuration, for the live check. */
   contractConfig(): Promise<IssuerContractConfig> {
     return this.signer.contractConfig();

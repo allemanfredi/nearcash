@@ -8,6 +8,7 @@
     "build": "rm -rf dist && swc src/server -d dist --strip-leading-paths --quiet",
     "start": "pnpm build && node dist/server/main.js",
     "reader": "node src/reader-cli.ts",
+    "birth": "node src/birth-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },

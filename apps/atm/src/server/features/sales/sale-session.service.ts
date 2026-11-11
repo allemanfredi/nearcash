@@ -182,7 +182,8 @@ export class SaleSessionService {
       const prepared = await prepareCard(card);
 
       session.stage = 'certifying';
-      const certificate = await this.issuance.issue(id, prepared.keys);
+      // The chip's birth certificate goes along: the issuance server checks it before funding.
+      const certificate = await this.issuance.issue(id, prepared.keys, prepared.birth);
 
       session.stage = 'writing';
       await writeCertificate(card, certificate, session.pin, this.trustedIssuers);

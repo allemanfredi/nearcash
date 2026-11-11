@@ -18,7 +18,9 @@ import type { CertificateAuthority } from './certificate-authority.port.ts';
  * sale needs no NEAR account, no gas and no wait for the MPC nodes.
  *
  * What is skipped with the signature: the contract's own checks (daily cap,
- * public counters). And the DEV key is public, so anyone could forge these
+ * public counters, one certificate per chip). The chips' birth certificates
+ * are still checked here, against the contract's production key, unless
+ * NEARCASH_SKIP_BIRTH skips them too. And the DEV key is public, so anyone could forge these
  * certificates: the ATM trusts them because it asks this server which key
  * to trust; the wallet app trusts them only in its Debug builds. Demo
  * banknotes only, never real money.
@@ -37,5 +39,10 @@ export class SkipMpcCertificateAuthority implements CertificateAuthority {
 
   denominations(): Promise<bigint[]> {
     return this.banknotes.denominations();
+  }
+
+  /** The issuer contract's production key: birth certificates are checked as in production. */
+  productionPublicKey(): Promise<Uint8Array> {
+    return this.banknotes.productionPublicKey();
   }
 }

@@ -12,6 +12,7 @@ export * from './signer.ts';
 export * from './mpc.ts';
 export * from './eth.ts';
 export * from './verify.ts';
+export * from './birth.ts';
 export * from './issuance.ts';
 export * from './sale.ts';
 export * from './dev.ts';

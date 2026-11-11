@@ -1,4 +1,4 @@
-import { DEV_DENOMINATION, DEV_ISSUER_SIGNER, type Denomination } from '@nearcash/core';
+import { DEV_DENOMINATION, DEV_ISSUER_SIGNER, DEV_PRODUCTION_PUBLIC_KEY, type Denomination } from '@nearcash/core';
 import type { CertificateAuthority } from './certificate-authority.port.ts';
 
 /**
@@ -15,5 +15,10 @@ export class DevCertificateAuthority implements CertificateAuthority {
 
   async denominations(): Promise<bigint[]> {
     return [DEV_DENOMINATION.amount];
+  }
+
+  /** The public DEV production key: test chips are born with it (pnpm card:birth --dev). */
+  async productionPublicKey(): Promise<Uint8Array> {
+    return DEV_PRODUCTION_PUBLIC_KEY;
   }
 }

@@ -101,6 +101,12 @@ export type SignCertificateArgs = {
   amount: string;
   /** Unix seconds at 00:00 UTC. */
   issued_at: number;
+  /** The chip key C, compressed SEC1, lowercase hex (protocol.md §5.8). */
+  chip_public_key: string;
+  /** The production key's signature over C: compact r ‖ s, hex. */
+  birth_signature: string;
+  /** C's signature over A and F: compact r ‖ s, hex. */
+  keys_signature: string;
 };
 
 /** The issuer contract's `config()` view. */
@@ -115,6 +121,12 @@ export type IssuerContractConfig = {
   funds_contract_id: string;
   denominations: string[];
   daily_value_cap: string;
+  /**
+   * The bank's production key (compressed SEC1 hex): it signs every chip's
+   * birth certificate (protocol.md §5.8). Absent on contracts deployed
+   * before birth certificates.
+   */
+  production_public_key?: string;
 };
 
 /** Reads the issuer contract's configuration (a view call: no account, no key). */
@@ -175,6 +187,18 @@ export class IssuerContractBanknotes {
   async denominations(): Promise<bigint[]> {
     return (await this.contractConfig()).denominations.map(BigInt);
   }
+
+  /** The production key that gives birth to the bank's chips. Throws if the contract has none. */
+  async productionPublicKey(): Promise<Uint8Array> {
+    const key = (await this.contractConfig()).production_public_key;
+    if (!key) {
+      throw new Error(
+        'the issuer contract has no production key (it was deployed before birth certificates): ' +
+          'migrate it (docs/protocol.md §11), or skip birth certificates for a demo (NEARCASH_SKIP_BIRTH)',
+      );
+    }
+    return hexToBytes(key);
+  }
 }
 
 /** Certificates signed by the NEAR MPC network, through the issuer contract. */
@@ -201,13 +225,18 @@ export class MpcCertificateSigner implements CertificateSigner {
    * built here, so any mismatch with the contract is caught before issuing.
    */
   async sign(request: CertificateSigningRequest): Promise<Uint8Array> {
-    const { fields } = request;
+    const { fields, birth } = request;
+    // The contract certifies only keys a born chip vouches for (protocol.md §5.8).
+    if (!birth) throw new Error('the issuer contract certifies only cards with a birth certificate');
     return mpcSignatureToCompact(
       await this.client.signCertificate({
         auth_public_key: bytesToHex(fields.authPublicKey),
         funds_public_key: bytesToHex(fields.fundsPublicKey),
         amount: fields.amount.toString(),
         issued_at: fields.issuedAt,
+        chip_public_key: bytesToHex(birth.chipPublicKey),
+        birth_signature: bytesToHex(birth.birthSignature),
+        keys_signature: bytesToHex(birth.keysSignature),
       }),
     );
   }
@@ -220,6 +249,11 @@ export class MpcCertificateSigner implements CertificateSigner {
   /** Allowed amounts, smallest unit. */
   denominations(): Promise<bigint[]> {
     return this.banknotes.denominations();
+  }
+
+  /** See IssuerContractBanknotes.productionPublicKey. */
+  productionPublicKey(): Promise<Uint8Array> {
+    return this.banknotes.productionPublicKey();
   }
 
   /** The issuer contract's configuration (token, denominations, the key it writes into certificates…). */

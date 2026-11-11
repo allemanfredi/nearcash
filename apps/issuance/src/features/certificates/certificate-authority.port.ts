@@ -12,6 +12,13 @@ export interface CertificateAuthority {
   denomination(amount: bigint): Promise<Denomination>;
   /** Allowed amounts, smallest unit of the token. */
   denominations(): Promise<bigint[]>;
+  /**
+   * The bank's production key (compressed SEC1): it signs the birth
+   * certificate of every chip the bank makes (protocol.md §5.8). In
+   * production the issuer contract names it; in development, the public
+   * DEV production key.
+   */
+  productionPublicKey(): Promise<Uint8Array>;
 }
 
 /** Injection token of the CertificateAuthority. */

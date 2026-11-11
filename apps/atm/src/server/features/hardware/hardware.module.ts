@@ -42,7 +42,9 @@ const PCSC_READERS = Symbol('PCSC_READERS');
       provide: CASSETTE,
       inject: [ATM_CONFIG, PCSC_READERS],
       useFactory: (config: AtmConfig, readers: PcscReaders | undefined): Cassette => {
-        if (config.cassette.kind === 'pcsc' && readers) return new PcscCassette(readers, config.cassette.readerName);
+        if (config.cassette.kind === 'pcsc' && readers) {
+          return new PcscCassette(readers, config.cassette.readerName, config.cassette.requireBirth);
+        }
         if (config.cassette.kind === 'dummy') return new DummyReader();
         return new NoCardReader();
       },

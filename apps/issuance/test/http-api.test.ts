@@ -13,7 +13,7 @@ import { AppModule } from '../src/app.module.ts';
 import type { IssuanceConfig } from '../src/config/issuance-config.ts';
 import { RefundsService } from '../src/features/refunds/refunds.service.ts';
 import { SIMULATED_SENDERS } from '../src/features/refunds/simulated-sender-finder.ts';
-import { TEN, cardKeys } from './fakes.ts';
+import { TEN, bornCard, cardKeys } from './fakes.ts';
 
 const apps: INestApplication[] = [];
 afterEach(async () => {
@@ -28,6 +28,7 @@ async function start(payments: 'simulated' | '1click' = 'simulated'): Promise<st
 async function startApp(payments: 'simulated' | '1click' = 'simulated'): Promise<{ base: string; app: INestApplication }> {
   const config: IssuanceConfig = {
     certificates: { kind: 'dev' },
+    birthCertificates: 'required',
     payments: { kind: payments, oneClick: { recipientType: 'CONFIDENTIAL_INTENTS' } },
     reserve: { kind: 'simulated' },
     reserveAccountId: 'bank-reserve.far',
@@ -77,7 +78,8 @@ describe('HTTP API', () => {
 
     await atm.simulatePayment(sale.id);
     expect((await atm.getSale(sale.id)).status).toBe('PAID');
-    const certificate = decodeCertificate(await atm.issue(sale.id, cardKeys()));
+    const card = bornCard();
+    const certificate = decodeCertificate(await atm.issue(sale.id, card.keys, card.birth));
     expect(verifyCertificateSignature(certificate)).toBe(true);
     expect((await atm.getSale(sale.id)).status).toBe('ISSUED');
   });

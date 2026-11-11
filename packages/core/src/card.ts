@@ -7,6 +7,7 @@
 import { ByteReader, concatBytes, uintToBytes, utf8ToBytes } from './bytes.ts';
 import {
   APPLET_AID,
+  BIRTH_SIGNATURE_LENGTH,
   CHALLENGE_LENGTH,
   CLA,
   CardError,
@@ -39,10 +40,26 @@ export type AuthResponse = {
   signature: Uint8Array;
 };
 
-/** Keys returned by GENERATE_KEYS, uncompressed SEC1. */
+/** A and F, uncompressed SEC1. */
 export type CardKeys = {
   authPublicKey: Uint8Array;
   fundsPublicKey: Uint8Array;
+};
+
+/** GENERATE_KEYS: A and F, signed by C when the chip is born (protocol.md §5.6, §5.8). */
+export type GeneratedKeys = CardKeys & {
+  /** C's DER signature over the keys message (may be high-s); absent on a card that was never born. */
+  keysSignature?: Uint8Array;
+};
+
+/** GET_BIRTH (protocol.md §5.8). */
+export type CardBirth = {
+  /** C, uncompressed SEC1. */
+  chipPublicKey: Uint8Array;
+  /** The production key's signature over the birth message: compact r ‖ s. */
+  birthSignature: Uint8Array;
+  /** C's DER signature over A and F; absent before GENERATE_KEYS. */
+  keysSignature?: Uint8Array;
 };
 
 /** Largest GET_CERT chunk we ask for (short APDU: Le ≤ 256). */
@@ -138,16 +155,59 @@ export class NearCashCard {
 
   // ------------------------------------------------------------------ issuance
 
-  /** GENERATE_KEYS: creates A and F inside the chip (only once per card). */
-  async generateKeys(): Promise<CardKeys> {
+  /**
+   * GENERATE_KEYS: creates A and F inside the chip (only once per card). A
+   * born chip also signs them with C.
+   */
+  async generateKeys(): Promise<GeneratedKeys> {
     const data = await this.command('GENERATE_KEYS', Ins.GENERATE_KEYS, 0, 0, undefined, 256);
     const reader = new ByteReader(data);
-    const keys = {
+    const keys: GeneratedKeys = {
       authPublicKey: reader.bytesN(PUBLIC_KEY_LENGTH),
       fundsPublicKey: reader.bytesN(PUBLIC_KEY_LENGTH),
     };
-    reader.expectEnd('GENERATE_KEYS');
+    if (reader.remaining > 0) keys.keysSignature = reader.bytesN(reader.remaining);
     return keys;
+  }
+
+  // ------------------------------------------------------------------ birth (factory)
+
+  /** CHIP_KEY: creates C the first time, then answers the same key (uncompressed SEC1). */
+  async chipKey(): Promise<Uint8Array> {
+    const data = await this.command('CHIP_KEY', Ins.CHIP_KEY, 0, 0, undefined, 256);
+    if (data.length !== PUBLIC_KEY_LENGTH) throw new Error(`CHIP_KEY returned ${data.length} bytes`);
+    return data;
+  }
+
+  /** STORE_BIRTH: the production key's signature over C (once, while EMPTY). */
+  async storeBirth(birthSignature: Uint8Array): Promise<void> {
+    if (birthSignature.length !== BIRTH_SIGNATURE_LENGTH) {
+      throw new RangeError(`a birth signature is ${BIRTH_SIGNATURE_LENGTH} bytes`);
+    }
+    await this.command('STORE_BIRTH', Ins.STORE_BIRTH, 0, 0, birthSignature);
+  }
+
+  /**
+   * GET_BIRTH: the card's birth certificate, or undefined if it was never
+   * born: a v2 applet says 6985, a v1 applet (before birth certificates)
+   * does not know the command (6D00) and can never be born.
+   */
+  async readBirth(): Promise<CardBirth | undefined> {
+    let data: Uint8Array;
+    try {
+      data = await this.command('GET_BIRTH', Ins.GET_BIRTH, 0, 0, undefined, 256);
+    } catch (error) {
+      const neverBorn = error instanceof CardError && (error.sw === SW.CONDITIONS_NOT_SATISFIED || error.sw === SW.INS_NOT_SUPPORTED);
+      if (neverBorn) return undefined;
+      throw error;
+    }
+    const reader = new ByteReader(data);
+    const birth: CardBirth = {
+      chipPublicKey: reader.bytesN(PUBLIC_KEY_LENGTH),
+      birthSignature: reader.bytesN(BIRTH_SIGNATURE_LENGTH),
+    };
+    if (reader.remaining > 0) birth.keysSignature = reader.bytesN(reader.remaining);
+    return birth;
   }
 
   /** STORE_CERT in chunks. The certificate becomes readable after FINALIZE. */

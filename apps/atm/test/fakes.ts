@@ -4,6 +4,7 @@
  * what it was asked to do.
  */
 import {
+  type BirthProof,
   type CardPublicKeys,
   type CreateSaleRequest,
   DEV_DENOMINATION,
@@ -72,7 +73,11 @@ export class FakeIssuance implements AtmIssuanceApi {
     return { ...this.require(saleId) };
   }
 
-  async issue(saleId: string, keys: CardPublicKeys): Promise<Uint8Array> {
+  /** The birth certificates the ATM sent along with the keys, in order. */
+  readonly births: (BirthProof | undefined)[] = [];
+
+  async issue(saleId: string, keys: CardPublicKeys, birth?: BirthProof): Promise<Uint8Array> {
+    this.births.push(birth);
     const sale = this.require(saleId);
     if (sale.status !== 'PAID') throw new Error(`sale is ${sale.status}`);
     this.issued += 1;

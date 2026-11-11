@@ -1,4 +1,4 @@
-# NearCash card protocol — v1
+# NearCash card protocol — v2
 
 This document is the single source of truth for everything that crosses the
 card boundary: commands (APDUs), card states, signed messages and the
@@ -8,13 +8,14 @@ one of them, change this document first.
 
 ## 1. The model in one paragraph
 
-A NearCash card is a banknote. Inside the chip live two secp256k1 key pairs
+A NearCash card is a banknote. Inside the chip live three secp256k1 key pairs
 that never leave it:
 
 | Key | Purpose | How often it signs |
 |-----|---------|--------------------|
 | **F** (funds) | Controls the card's own account on NEAR Intents (FAR). The account id is the Ethereum-style address of F (`0x…`). | **Exactly once**, to redeem, protected by a PIN. |
 | **A** (auth) | Proves "I am a genuine, unspent NearCash card" during person-to-person exchanges. | Every time someone checks the card. |
+| **C** (chip) | Made at the factory, before the card is sold. The bank's **production key**, kept offline, signs it: the chip's **birth certificate** (§5.8). | **Once**, when A and F are created: C signs them, proving they were born inside a chip the bank made. |
 
 At issuance the bank has the NEAR MPC network sign a **certificate** (§11)
 that binds A, F, the amount and the token. While cards circulate nothing happens on-chain. When a card signs
@@ -25,6 +26,12 @@ The keys are separate on purpose: an AUTH signature can never be turned into a
 redemption (A is not a key of the funds account), and F produces a single
 signature in its whole life, leaving nothing to observe for side-channel
 attacks.
+
+Why C: everything above holds only if A and F were born inside the genuine
+applet, which signs once and then says `SPENT` forever. Keys made anywhere
+else (a card programmed by an attacker) could be spent online and still pass
+as unspent. So the issuer certifies only keys a born chip vouches for: even
+whoever controls the issuance server cannot have keys of their own certified.
 
 ## 2. Card requirements
 
@@ -84,19 +91,22 @@ All multi-byte integers are **big-endian**.
 |------|---------------|--------------|---------------|------------|
 | INFO | `80 10 00 00` | — | see 5.1 | any state |
 | GET_CERT | `80 12 offH offL` | — (Le = chunk size) | certificate bytes from `offset` | ISSUED, SPENT |
+| GET_BIRTH | `80 14 00 00` | — | pubC (65) ‖ birth signature (64) ‖ [keys signature, DER, once GENERATE_KEYS has run] | any state, once born |
 | AUTH | `80 20 00 00` | challenge (16–64 bytes) | `state` (1) ‖ DER signature by A | ISSUED, SPENT |
 | SIGN_ONCE | `80 30 00 00` | `pinLen` (1) ‖ PIN ‖ digest (32) | DER signature by F | ISSUED; SPENT (re-read only) |
 | CHANGE_PIN | `80 32 00 00` | `oldLen` (1) ‖ old PIN ‖ `newLen` (1) ‖ new PIN | — | ISSUED |
-| GENERATE_KEYS | `80 40 00 00` | — | pubA (65) ‖ pubF (65) | EMPTY |
+| GENERATE_KEYS | `80 40 00 00` | — | pubA (65) ‖ pubF (65) ‖ [keys signature by C, DER, on a born card] | EMPTY |
 | STORE_CERT | `80 42 offH offL` | certificate chunk | — | KEYS_GENERATED |
 | FINALIZE | `80 44 00 00` | `certLen` (2) ‖ `pinLen` (1) ‖ PIN | — | KEYS_GENERATED |
+| CHIP_KEY | `80 50 00 00` | — | pubC (65) | EMPTY |
+| STORE_BIRTH | `80 52 00 00` | birth signature (64) | — | EMPTY, once, after CHIP_KEY |
 
 Public keys are always **uncompressed SEC1** on the wire: `04 ‖ X (32) ‖ Y (32)`.
 
 ### 5.1 INFO
 
 ```
-version (1) = 0x01
+version (1) = 0x02          0x02: birth certificates (§5.8)
 state   (1)
 pinTriesRemaining (1)
 certLength (2)              0 until FINALIZE
@@ -156,6 +166,9 @@ current PIN, the receiver replaces it. Wrong old PIN → `63Cx`.
 ### 5.6 Issuance: GENERATE_KEYS, STORE_CERT, FINALIZE
 
 - **GENERATE_KEYS** creates A and F on the card. Allowed once (state `EMPTY`).
+  On a born card C also signs them (§5.8): the keys signature is stored in
+  the same atomic transaction that moves the card to `KEYS_GENERATED`, and
+  answered after the keys.
 - **STORE_CERT** writes a certificate chunk at offset P1‖P2 (max total 512 bytes).
 - **FINALIZE** sets the certificate length and the holder's first PIN, and
   moves the card to `ISSUED`. After this the certificate is read-only forever.
@@ -169,6 +182,51 @@ a certificate is only trusted if the issuer's signature on it is valid.
 - 5 wrong attempts block the PIN for good. A blocked card can no longer be
   redeemed (its value is lost), but it cannot be stolen either.
 - Hackathon limitation: the PIN travels in clear over NFC (no secure channel).
+
+### 5.8 Birth certificate: CHIP_KEY, STORE_BIRTH, GET_BIRTH
+
+Proves that a banknote's keys were born inside a chip the bank made.
+
+- **CHIP_KEY** (factory, card `EMPTY`): the chip creates C the first time,
+  then answers the same pubC again (a factory that lost the answer just asks
+  again).
+- **The production key** signs, on a machine kept offline (`pnpm card:birth`):
+
+  ```
+  birth message = "NBK-BIRTH-v1" (12 ASCII bytes) ‖ pubC, compressed (33)
+  birth signature = ECDSA secp256k1 over SHA-256(birth message), compact r ‖ s, low-s (64)
+  ```
+- **STORE_BIRTH** (card `EMPTY`, after CHIP_KEY, once): the card keeps the
+  64 bytes. It cannot check them (it does not know the production key), and
+  it never needs to: the issuer checks.
+- **GENERATE_KEYS** on a born card: C signs
+
+  ```
+  keys message = "NBK-KEYS-v1" (11 ASCII bytes) ‖ pubA, compressed (33) ‖ pubF, compressed (33)
+  keys signature = ECDSA secp256k1 over SHA-256(keys message) with C, DER (may be high-s)
+  ```
+
+  Compressed keys (`02`/`03` by the parity of Y, then X) let the issuer
+  contract rebuild the message from the keys it certifies.
+- **GET_BIRTH** answers pubC, the birth signature and, after GENERATE_KEYS,
+  the keys signature again (also after a power loss). A card never born
+  answers `6985`.
+
+Birth happens only while the card is `EMPTY`: a card that created A and F
+without a C can never be born, and its keys can never be certified.
+
+**The issuer's check** (the issuance server before funding the card, the
+issuer contract again before MPC signs):
+1. the birth signature verifies with the production key over pubC;
+2. the keys signature verifies with pubC over these A and F;
+3. (contract) one certificate per chip: the same chip with other keys or
+   another amount is refused; the very same request again is a retry.
+
+What it closes: keys made outside a genuine chip (a programmable card, a
+fake applet loaded before issuance, §10.1) can no longer be certified, not
+even by someone who controls the issuance server. C is deleted with the
+applet, so a reinstalled applet has no birth. What it does not close: see
+§10.
 
 ## 6. Status words
 
@@ -239,8 +297,13 @@ GlobalPlatformPro (the `gp` tool, which uses the GlobalPlatform keys of §2):
 1. Wipe the card: delete everything on it. A card on which the default keys
    do not work (someone changed them) is discarded.
 2. Install the applet (§3). The card is now `EMPTY`.
-3. Lock the card's code (TODO, §10.1).
-4. Put it in the ATM's cassette.
+3. Give it its birth certificate (§5.8): `pnpm card:birth --key <file>`, on
+   the bank's offline production station (`--new-key <file>` makes the
+   production key once; `--dev` uses the public DEV production key, tests
+   only).
+4. Lock the card's code (TODO, §10.1).
+5. Put it in the ATM's cassette. The ATM refuses a blank card without a
+   birth certificate (out of service) before anyone pays.
 
 **Issuance: the ATM sells, the issuance server creates value (§12)**
 
@@ -256,10 +319,13 @@ no funds, no certificate. Value is created only by the issuance server, after it
    exactly the value (`EXACT_OUTPUT`) and the user pays the conversion, plus
    a 1 % margin that 1Click refunds if unused.
 2. The user pays. The **issuance server** reads `SUCCESS` from 1Click itself.
-3. The ATM takes a blank card: SELECT, GENERATE_KEYS → A, F.
-4. The issuance server transfers the value from the reserve to the card's own account
+3. The ATM takes a blank card: SELECT, GET_BIRTH (pubC, birth signature),
+   GENERATE_KEYS → A, F and C's keys signature, all sent to the issuance server.
+4. The issuance server checks the chip's birth (§5.8) with the production
+   key the issuer contract names: a card the bank did not make is refused
+   here, before anything is bound or funded. Then it transfers the value from the reserve to the card's own account
    inside FAR (the Ethereum address of F) and has the NEAR MPC network sign
-   the certificate (§11). One payment buys exactly one card. The transfer is
+   the certificate (§11); the issuer contract checks the birth again. One payment buys exactly one card. The transfer is
    a 1Click quote from FAR to FAR (the same token, the card as recipient,
    no fee): 1Click prepares the transfer intent, the reserve checks that it
    is exactly that transfer and signs it (NEP-413), 1Click executes it, and
@@ -335,12 +401,22 @@ redeem yet.
 ## 10. Known limitations (to declare)
 
 - **Trust is at creation only.** The issuance server is trusted to fund a card
-  before asking for its certificate (the contract cannot see FAR). The contract
-  limits a compromised issuance server: allowed denominations only, a daily value cap,
-  public counters, immediate revocation. ATMs hold no keys and cannot create value.
+  before asking for its certificate (the contract cannot see FAR: it is a
+  private chain, with a private RPC). The contract limits a compromised
+  issuance server: only chips the bank made (birth certificates, §5.8), one
+  certificate per chip, allowed denominations only, a daily value cap,
+  public counters, immediate revocation. What is left: whoever controls the
+  issuance server can have genuine blank chips certified without funding
+  them (empty banknotes). The damage is bounded by the blank chips they can
+  get, each one recorded by the contract. ATMs hold no keys and cannot
+  create value.
   **TODO:** Once FAR supports contract deployment and MPC is available on FAR,
   deploy issuance there to make it straightforward to verify the card's backing
   directly before signing, instead of trusting the issuance server.
+- **The production key makes chips.** Whoever holds it can give birth to
+  fake chips (§5.8). It lives on a machine that never goes online; if it
+  leaks, the owner replaces it in the contract (`set_production_key`) and
+  the chips born with the old key can no longer be certified.
 - The FAR operator can technically freeze accounts; NearCash never needs to.
   Recommended: the freeze role on a time-locked multisig (own FAR instance).
 
@@ -406,10 +482,11 @@ applet or load another one. What that allows, case by case:
   issuance server nor a receiver could check it. pubA already plays this
   role: only the applet that generated A can answer AUTH.
 - **A fake applet before issuance.** A blank card whose applet uses keys the
-  attacker knows, or never becomes `SPENT`, would be certified like a genuine
-  one, and neither pubA nor a code hash would stop it. Operators prevent it:
-  before a card goes into an ATM's cassette, they wipe it (delete everything
-  on it) and install the applet themselves (§9, Card preparation). A card on
+  attacker knows, or never becomes `SPENT`, cannot be certified: it has no
+  birth certificate (§5.8). The birth signature covers C, which only the
+  genuine applet holds; replacing the applet deletes C, and a new C is never
+  signed by the production key. Operators still wipe a card and install the
+  applet themselves (§9, Card preparation) before giving it birth; a card on
   which the default keys do not work (someone changed them) is discarded.
 - **A second applet after issuance.** Loaded next to ours, it would exploit a
   bug in the Java Card virtual machine to get past the firewall and read F.
@@ -443,14 +520,15 @@ already issued suspect. With MPC:
   no employee who knows it. For certificates the issuance server holds only a
   function-call key that can call `sign_certificate`.
 - Breaking into the issuance server gives only what the issuer contract
-  allows: the allowed denominations, up to the daily cap, in public counters.
-  Removing the minter stops it at once, and the issuer key, and so every
-  wallet, stays as it is.
+  allows: chips the bank made (§5.8), one certificate each, the allowed
+  denominations, up to the daily cap, in public counters. Removing the
+  minter stops it at once, and the issuer key, and so every wallet, stays as
+  it is.
 - The issuer key is public and checkable: anyone can recompute it from MPC's
   root key (below).
 
 ```
-issuance server ──sign_certificate(card keys, amount, day)──▶ issuer contract ──sign(request, 1 yocto)──▶ MPC contract
+issuance server ──sign_certificate(card keys, amount, day, chip's birth)──▶ issuer contract ──sign(request, 1 yocto)──▶ MPC contract
                 ◀──────────────── MPC signature (big_r, s, recovery_id) ◀──────────────────────┘
 ```
 
@@ -460,9 +538,17 @@ issuance server ──sign_certificate(card keys, amount, day)──▶ issuer c
   issuance server's NEAR accounts — and
   **builds the certificate body itself** from the card keys, the amount and
   the day, with its configured token, symbol, decimals, funds contract and
-  issuer key. It enforces the allowed denominations, a daily value cap and
+  issuer key. It certifies only keys born in a chip the bank made: it checks
+  the birth signature with its `production_public_key` and C's signature
+  over A and F (§5.8), with NEAR's `ecrecover`, and records every chip
+  (`is_chip_certified`): one certificate per chip. It enforces the allowed
+  denominations, a daily value cap and
   `issued_at` = 00:00 UTC of today or yesterday; keeps public counters
   (`stats`); pays MPC's 1 yoctoNEAR deposit; logs every certificate hash.
+- **sign_certificate** arguments: `auth_public_key`, `funds_public_key`
+  (compressed hex), `amount`, `issued_at`, `chip_public_key` (compressed
+  hex), `birth_signature` and `keys_signature` (compact `r ‖ s` hex, 64 bytes).
+- **Production key**: `set_production_key` (owner) replaces it.
 - **MPC request** (near/mpc `SignRequestArgs`):
   `{"path": "<contract path>", "payload_v2": {"Ecdsa": "<hash hex>"}, "domain_id": 0}`
   on `v1.signer-prod.testnet` (testnet) / `v1.signer` (mainnet). Domain 0 is
@@ -489,6 +575,15 @@ to check it before funding a card: it funds first and certifies after, so a
 refused certificate would leave the value on a card that can never sign.
 These testnet accounts were created before the project was renamed NearCash and keep their on-chain names: renaming them means a new issuer key (redeploy + new key in the wallets).
 
+**TODO: upgrade the testnet contract to birth certificates.** It still runs
+the code from before them (its config has no `production_public_key`): until
+it is upgraded, the issuance server refuses real cards unless birth
+certificates are skipped (below). To upgrade: make the production key
+(`pnpm card:birth --new-key <file>`, offline), deploy the new code to the same
+account (`cargo near deploy`), then `pnpm issuer:admin migrate <production
+public key>` once: it keeps minters and counters, and the issuer key, so no
+wallet changes.
+
 **Demos without MPC** (`NEARCASH_SKIP_MPC=true`, `pnpm atm:demo --skip-mpc`):
 the issuance server still reads the banknotes (token, denominations) from the
 issuer contract, but builds and signs each certificate itself with the
@@ -496,7 +591,14 @@ public DEV key (`packages/core/src/dev.ts`) instead of calling
 `sign_certificate`. The daily cap and the public counters are skipped with
 it. The ATM trusts that key because it asks the issuance server
 (`GET /issuer`); the wallet app trusts it only in Debug builds. Anyone can
-forge certificates with the DEV key: demo banknotes only.
+forge certificates with the DEV key: demo banknotes only. The chips' birth
+certificates are still checked, against the contract's production key.
+
+**Demos with cards that were never born** (`NEARCASH_SKIP_BIRTH=true`,
+`pnpm atm:demo --skip-mpc --skip-birth`): the ATM accepts a blank card
+without a birth certificate and the issuance server issues it without
+checking one. Only together with MPC skipped (or the dev signer): the issuer
+contract always checks the birth.
 
 **Tests without the NFC reader** (`NEARCASH_CASSETTE=dummy`,
 `pnpm atm:demo --dummy-reader`): the printed dummy reader sits in the turret.
@@ -510,16 +612,18 @@ the start.
 
 | | Issuance server (`apps/issuance`, one, protected) | ATM (`apps/atm` + `apps/kiosk`, many, in the street) |
 |---|---|---|
-| Keys | Function-call key that can only call `sign_certificate`; the FAR reserve key | **None** |
+| Keys | Function-call key that can only call `sign_certificate`; the FAR reserve key. Never the production key: that one stays on the offline factory station (§5.8) | **None** |
 | Makes the 1Click quote | Yes, recipient = bank reserve; refunds to the user's address if given, else to the reserve | No |
 | Decides a sale is paid | Yes, reading 1Click itself | No |
+| Checks the chip's birth certificate | Yes, before funding (the contract again before signing) | Sends it along with the card keys; refuses a blank card without one |
 | Funds the card | Yes, reserve → card inside FAR | No |
 | Certificate | Asks the issuer contract (MPC signs) | Writes it on the card, with the PIN |
 | Refunds that reach the reserve | Sends them back to the address that paid | No |
 
 Issuance rules (apps/issuance/src/features/sales/sales.service.ts, each covered by a test):
 1. A card is funded and certified only after the issuance server has read `SUCCESS` for
-   its own quote. ATMs are never believed.
+   its own quote. ATMs are never believed. And only a card the bank made:
+   its birth certificate is checked before anything is bound or funded.
 2. One payment buys one card: the first card presented is bound to the sale;
    another card is refused; the same card gets the same certificate back.
 3. A card is never funded twice: an interrupted transfer stops the sale for a
@@ -549,8 +653,11 @@ What an attack gets:
 - **Stolen cassette**: blank plastic. Nothing to freeze.
 - **Tampered ATM**: cannot fake a 1Click `SUCCESS`; at most it redirects one
   paying customer's sale, which the customer sees immediately.
-- **Compromised issuance server**: bounded by the contract (denominations, daily cap),
-  visible in the public counters, revocable at once.
+- **Compromised issuance server**: bounded by the contract (only chips the
+  bank made, one certificate each, denominations, daily cap), visible in the
+  public counters, revocable at once. It cannot certify cards it made
+  itself; it can still certify genuine blank chips it gets hold of without
+  funding them (§10).
 
 Privacy: the payment goes to the reserve, not to a card; funding happens
 inside FAR; the certificate carries only the day. Nothing public links a

@@ -18,7 +18,7 @@ import { SimulatedReserve } from '../src/features/reserve/simulated.reserve.ts';
 import { JsonFileSaleRepository } from '../src/features/sales/json-file-sale.repository.ts';
 import { SalesService } from '../src/features/sales/sales.service.ts';
 import { systemClock } from '../src/common/clock.ts';
-import { TEN, TestAuthority, cardKeys } from './fakes.ts';
+import { TEN, TestAuthority, bornCard } from './fakes.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -251,11 +251,12 @@ describe('the sales service with NEARCASH_RESERVE_TOKEN', () => {
     };
     const reserve = new RecordingReserve();
     const config = { reserveAccountId: 'reserve.far', paymentWindowMinutes: 30, reserveTokenId: USDC } as IssuanceConfig;
-    const sales = new SalesService(new JsonFileSaleRepository(undefined), gateway, reserve, new CertificatesService(new TestAuthority()), systemClock, config);
+    const sales = new SalesService(new JsonFileSaleRepository(undefined), gateway, reserve, new CertificatesService(new TestAuthority(), { birthCertificates: 'required' }), systemClock, config);
 
     const sale = await sales.createSale({ amount: TEN, originAsset: 'base:usdc' });
     gateway.settle(sale.depositAddress, 'SUCCESS');
-    await sales.issue(sale.id, cardKeys());
+    const card = bornCard();
+    await sales.issue(sale.id, card.keys, card.birth);
 
     expect(quotes[0]!.destinationAsset).toBe(USDC);
     expect(reserve.fundings[0]!.tokenId).toBe(USDC);

@@ -7,8 +7,9 @@ import type { PcscReaders } from './pcsc-readers.ts';
  * the reader (or, until the pusher is wired, the card an operator put there).
  *
  * The ATM is available only when that card is a blank NearCash banknote
- * (the applet answers and the card is EMPTY): it never takes a payment it
- * can't turn into a banknote. Asked before every sale and by the screen, so
+ * (the applet answers, the card is EMPTY and, unless a demo skips it, the
+ * card has a birth certificate: docs/protocol.md §5.8): it never takes a
+ * payment it can't turn into a banknote. Asked before every sale and by the screen, so
  * a card that was just written (ISSUED) puts the ATM out of service until
  * it is taken away and a blank one takes its place.
  */
@@ -16,9 +17,12 @@ export class PcscCassette implements Cassette {
   readonly name: string;
   readonly dummy = false;
   private readonly readers: PcscReaders;
+  /** A blank card must have a birth certificate (false only for demos: NEARCASH_SKIP_BIRTH). */
+  private readonly requireBirth: boolean;
 
-  constructor(readers: PcscReaders, readerName: string | undefined) {
+  constructor(readers: PcscReaders, readerName: string | undefined, requireBirth = true) {
     this.readers = readers;
+    this.requireBirth = requireBirth;
     this.name = readerName ? `PC/SC NFC reader "${readerName}"` : 'PC/SC NFC reader';
   }
 
@@ -41,6 +45,11 @@ export class PcscCassette implements Cassette {
     const info = await card.info();
     if (info.state !== CardState.EMPTY) {
       return `the card at the reader is not blank (it is ${cardStateName(info.state)}): take it away and put a blank one`;
+    }
+    // The issuance server refuses a card the bank did not make: refuse it
+    // here, before the customer pays (the issuance server checks the signatures).
+    if (this.requireBirth && !(await card.readBirth())) {
+      return 'the blank card at the reader has no birth certificate: give it one first (pnpm card:birth)';
     }
     return null;
   }

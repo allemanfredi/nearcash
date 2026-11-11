@@ -27,6 +27,18 @@ export const DEV_ISSUER: TrustedIssuer = {
 /** Signs with the public DEV key. Tests and test banknotes only. */
 export const DEV_ISSUER_SIGNER = new LocalKeySigner(DEV_ISSUER_SECRET_KEY, DEV_ISSUER.name);
 
+/**
+ * A public production key, to give birth to test chips (protocol.md §5.8):
+ * `pnpm card:birth --dev`, and the issuance server's NEARCASH_SIGNER=dev.
+ * Anyone can give birth to chips with it: never trust it for real cards.
+ */
+export const DEV_PRODUCTION_SECRET_KEY: Uint8Array = sha256(
+  utf8ToBytes('NearCash DEV production key - public on purpose - never use for real cards'),
+);
+
+/** Compressed SEC1 public key of DEV_PRODUCTION_SECRET_KEY. */
+export const DEV_PRODUCTION_PUBLIC_KEY: Uint8Array = secp256k1.getPublicKey(DEV_PRODUCTION_SECRET_KEY, true);
+
 /** A plausible denomination for test banknotes: 0.01 ETH on Intents. */
 export const DEV_DENOMINATION: Denomination = {
   amount: 10_000_000_000_000_000n, // 0.01 ETH in wei

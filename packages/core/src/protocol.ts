@@ -14,12 +14,15 @@ export const CLA = 0x80;
 export const Ins = {
   INFO: 0x10,
   GET_CERT: 0x12,
+  GET_BIRTH: 0x14,
   AUTH: 0x20,
   SIGN_ONCE: 0x30,
   CHANGE_PIN: 0x32,
   GENERATE_KEYS: 0x40,
   STORE_CERT: 0x42,
   FINALIZE: 0x44,
+  CHIP_KEY: 0x50,
+  STORE_BIRTH: 0x52,
 } as const;
 
 /** Card life-cycle states (protocol.md §4). They only move forward. */
@@ -50,7 +53,7 @@ export const SW = {
   CLA_NOT_SUPPORTED: 0x6e00,
 } as const;
 
-export const PROTOCOL_VERSION = 0x01;
+export const PROTOCOL_VERSION = 0x02;
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 8;
 export const PIN_TRY_LIMIT = 5;
@@ -62,6 +65,15 @@ export const PUBLIC_KEY_LENGTH = 65;
 
 /** Prefix of every AUTH message (protocol.md §5.3). */
 export const AUTH_DOMAIN_TAG = utf8ToBytes('NBK-AUTH-v1');
+
+/** Prefix of the birth message the production key signs (protocol.md §5.8). */
+export const BIRTH_DOMAIN_TAG = utf8ToBytes('NBK-BIRTH-v1');
+
+/** Prefix of the keys message the chip key C signs at GENERATE_KEYS (protocol.md §5.8). */
+export const KEYS_DOMAIN_TAG = utf8ToBytes('NBK-KEYS-v1');
+
+/** The birth signature: compact r ‖ s (protocol.md §5.8). */
+export const BIRTH_SIGNATURE_LENGTH = 64;
 
 /** True if `pin` is 4–8 ASCII digits, the only PINs the card accepts. */
 export function isValidPin(pin: string): boolean {

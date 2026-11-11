@@ -32,6 +32,7 @@ class NearCashAppletTest {
 
     private static final String PIN = "1234";
     private static final byte[] AUTH_TAG = "NBK-AUTH-v1".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] KEYS_TAG = "NBK-KEYS-v1".getBytes(StandardCharsets.US_ASCII);
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -57,6 +58,23 @@ class NearCashAppletTest {
         return out.toByteArray();
     }
 
+    /** The keys message C signs at GENERATE_KEYS (protocol.md §5.8). */
+    private static byte[] keysMessage(byte[] pubA, byte[] pubF) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.writeBytes(KEYS_TAG);
+        out.writeBytes(compress(pubA));
+        out.writeBytes(compress(pubF));
+        return out.toByteArray();
+    }
+
+    /** Compressed SEC1 form of an uncompressed key: 02/03 (parity of Y) || X. */
+    private static byte[] compress(byte[] uncompressed) {
+        byte[] compressed = new byte[33];
+        compressed[0] = (byte) (0x02 | (uncompressed[64] & 0x01));
+        System.arraycopy(uncompressed, 1, compressed, 1, 32);
+        return compressed;
+    }
+
     @Nested
     @DisplayName("A fresh card (EMPTY)")
     class FreshCard {
@@ -64,7 +82,7 @@ class NearCashAppletTest {
         @Test
         void infoReportsEmptyStateAndNoKeys() {
             TestCard.Info info = card.info();
-            assertEquals(1, info.version);
+            assertEquals(2, info.version);
             assertEquals(STATE_EMPTY, info.state);
             assertEquals(5, info.pinTriesRemaining);
             assertEquals(0, info.certificateLength);
@@ -153,6 +171,83 @@ class NearCashAppletTest {
             card.generateKeys();
             assertEquals(0x6A84, card.storeCertificateChunk(400, randomBytes(200)).getSW());
             assertEquals(TestCard.SW_WRONG_DATA, card.finalizeIssuance(513, PIN).getSW());
+        }
+    }
+
+    @Nested
+    @DisplayName("Birth (CHIP_KEY, STORE_BIRTH, GET_BIRTH)")
+    class Birth {
+
+        @Test
+        void chipKeyIsCreatedOnceAndAnsweredAgain() {
+            ResponseAPDU first = card.chipKey();
+            assertEquals(TestCard.SW_OK, first.getSW());
+            assertEquals(65, first.getData().length);
+            assertNotNull(Secp256k1Verifier.decodePublicKey(first.getData()));
+            assertArrayEquals(first.getData(), card.chipKey().getData(), "the same C, not a new one");
+        }
+
+        @Test
+        void aCardIsBornOnceAndTellsItsBirth() {
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.getBirth().getSW(), "not born yet");
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.storeBirth(randomBytes(64)).getSW(),
+                    "no birth before the chip key");
+
+            byte[] birthSignature = randomBytes(64);
+            byte[] pubC = card.giveBirth(birthSignature);
+
+            ResponseAPDU birth = card.getBirth();
+            assertEquals(TestCard.SW_OK, birth.getSW());
+            assertArrayEquals(pubC, Arrays.copyOfRange(birth.getData(), 0, 65));
+            assertArrayEquals(birthSignature, Arrays.copyOfRange(birth.getData(), 65, 129));
+            assertEquals(129, birth.getData().length, "no keys signature before GENERATE_KEYS");
+
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.storeBirth(randomBytes(64)).getSW(),
+                    "the birth certificate can't be replaced");
+        }
+
+        @Test
+        void theBirthSignatureMustBe64Bytes() {
+            card.chipKey();
+            assertEquals(TestCard.SW_WRONG_LENGTH, card.storeBirth(randomBytes(63)).getSW());
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.getBirth().getSW(), "still not born");
+        }
+
+        @Test
+        void aBornChipSignsTheKeysItGenerates() {
+            byte[] pubC = card.giveBirth(randomBytes(64));
+
+            ResponseAPDU response = card.generateKeys();
+            assertEquals(TestCard.SW_OK, response.getSW());
+            byte[] data = response.getData();
+            byte[] pubA = Arrays.copyOfRange(data, 0, 65);
+            byte[] pubF = Arrays.copyOfRange(data, 65, 130);
+            byte[] keysSignature = Arrays.copyOfRange(data, 130, data.length);
+
+            assertTrue(Secp256k1Verifier.verifyMessage(pubC, keysMessage(pubA, pubF), keysSignature),
+                    "C signs NBK-KEYS-v1 || compressed A || compressed F");
+            assertFalse(Secp256k1Verifier.verifyMessage(pubC, keysMessage(pubF, pubA), keysSignature),
+                    "the order of the keys is covered");
+
+            // GET_BIRTH gives the same signature back, also after a power cycle.
+            card.powerCycle();
+            byte[] birth = card.getBirth().getData();
+            assertArrayEquals(keysSignature, Arrays.copyOfRange(birth, 129, birth.length));
+        }
+
+        @Test
+        void anUnbornCardGeneratesKeysWithoutSigningThem() {
+            ResponseAPDU response = card.generateKeys();
+            assertEquals(TestCard.SW_OK, response.getSW());
+            assertEquals(130, response.getData().length, "pubA || pubF only");
+        }
+
+        @Test
+        void noBirthOnceTheKeysExist() {
+            card.chipKey();
+            card.generateKeys();
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.storeBirth(randomBytes(64)).getSW());
+            assertEquals(TestCard.SW_CONDITIONS_NOT_SATISFIED, card.chipKey().getSW());
         }
     }
 

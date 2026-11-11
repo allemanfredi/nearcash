@@ -14,6 +14,12 @@
  *   pnpm issuer:admin set-daily-cap 100000       owner: the most value certified in one day,
  *                                                in whole tokens; "none" lifts it (the largest
  *                                                value the contract can hold)
+ *   pnpm issuer:admin set-production-key <hex>   owner: the production key that gives birth to
+ *                                                the bank's chips (docs/protocol.md §5.8)
+ *   pnpm issuer:admin migrate <hex>              once, after deploying the code with birth
+ *                                                certificates on a contract deployed before them:
+ *                                                converts its state, with this production key
+ *                                                (called as the contract account itself)
  *
  * Environment: NEARCASH_ISSUER_CONTRACT (required), NEARCASH_NETWORK
  * (default testnet), NEARCASH_NEAR_RPC, NEARCASH_MPC_CONTRACT,
@@ -139,9 +145,22 @@ switch (command) {
     console.log(`daily value cap now ${config!.daily_value_cap} (${target === 'none' ? 'no cap' : `${target} ${symbol}`})`);
     break;
   }
+  case 'set-production-key':
+  case 'migrate': {
+    if (!target || !/^0[23][0-9a-f]{64}$/.test(target)) {
+      throw new Error(`usage: ${command} <production public key, compressed hex (pnpm card:birth --new-key prints it)>`);
+    }
+    // migrate is #[private]: only the contract account itself may call it.
+    const caller = command === 'migrate' ? accountFromKeychain(issuerContractId!) : await owner();
+    const methodName = command === 'migrate' ? 'migrate' : 'set_production_key';
+    await caller.callFunction({ contractId: issuerContractId!, methodName, args: { production_public_key: target }, gas: GAS });
+    const config = await provider.callFunction<{ production_public_key?: string }>({ contractId: issuerContractId!, method: 'config', args: {} });
+    console.log(`${methodName} done; production key now ${config!.production_public_key}`);
+    break;
+  }
   default:
     console.error(
-      'commands: public-key | stats | add-minter <account> | remove-minter <account> | minter-key <account> | set-denominations <1,5,10,20> | set-daily-cap <100000>',
+      'commands: public-key | stats | add-minter <account> | remove-minter <account> | minter-key <account> | set-denominations <1,5,10,20> | set-daily-cap <100000> | set-production-key <hex> | migrate <hex>',
     );
     process.exit(1);
 }

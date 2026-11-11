@@ -17,6 +17,10 @@
  *                                                              the card comes out blank
  *   NEARCASH_READER          part of the NFC reader's name; needed only when several
  *                            PC/SC readers are connected (a YubiKey counts as one)
+ *   NEARCASH_SKIP_BIRTH      false                      true: demos with cards that were never born
+ *                                                       (docs/protocol.md §5.8): the NFC reader accepts
+ *                                                       a blank card without a birth certificate; the
+ *                                                       issuance server must skip them too
  *   NEARCASH_DISPENSER       sim                        sim: nothing moves, the dispense is only logged
  *                                                       servos: the turret and the pusher, through
  *                                                               hardware/atm/dispense.py (for now only with
@@ -48,7 +52,15 @@ export type AtmConfig = {
    * none: no reader (out of service); pcsc: the NFC reader in front of the
    * blank cards; dummy: the printed dummy reader (no chip: cards come out blank).
    */
-  cassette: { kind: 'none' } | { kind: 'pcsc'; readerName: string | undefined } | { kind: 'dummy' };
+  cassette:
+    | { kind: 'none' }
+    | {
+        kind: 'pcsc';
+        readerName: string | undefined;
+        /** A blank card must have a birth certificate (false only for demos: NEARCASH_SKIP_BIRTH). */
+        requireBirth: boolean;
+      }
+    | { kind: 'dummy' };
   /**
    * sim: only logged; servos: `command` is run for each card (python3,
    * dispense.py and the calibration options).
@@ -75,6 +87,13 @@ export function loadAtmEnvironment(): NodeJS.ProcessEnv {
 }
 
 export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
+  // Cards that were never born (protocol.md §5.8), for demos only.
+  const skipBirthText = (env.NEARCASH_SKIP_BIRTH ?? '').trim().toLowerCase();
+  if (!['', 'true', 'false', '1', '0'].includes(skipBirthText)) {
+    throw new ConfigurationError('NEARCASH_SKIP_BIRTH must be true or false');
+  }
+  const skipBirth = skipBirthText === 'true' || skipBirthText === '1';
+
   const cassette = env.NEARCASH_CASSETTE ?? 'none';
   if (cassette !== 'none' && cassette !== 'pcsc' && cassette !== 'dummy') {
     throw new ConfigurationError(
@@ -109,7 +128,9 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
     },
     kioskKey: env.NEARCASH_KIOSK_KEY || undefined,
     cassette:
-      cassette === 'pcsc' ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined } : { kind: cassette },
+      cassette === 'pcsc'
+        ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined, requireBirth: !skipBirth }
+        : { kind: cassette },
     dispenser: dispenser === 'servos' ? { kind: 'servos', command: ['python3', DISPENSE_SCRIPT, ...servoOptions] } : { kind: 'sim' },
     pollMs: 3_000,
     graceMs: 15 * 60_000,

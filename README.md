@@ -54,9 +54,11 @@ from blank, to issued, to spent, and never back.
 
 **The issuance server** (`apps/issuance`) is the bank: the only place where
 banknotes get their value. For each sale it asks 1Click for a quote that pays
-the bank's reserve inside FAR, checks the payment itself (it never believes
-an ATM), moves the banknote's value from the reserve to the card's own
-account, and has the certificate signed. One payment buys exactly one card.
+the bank's reserve inside FAR (in USDC, on any chain, the customer sends
+exactly the banknote's value: the bank pays the conversion), checks the
+payment itself (it never believes an ATM), moves the banknote's value from
+the reserve to the card's own account, and has the certificate signed. One
+payment buys exactly one card.
 It also gives back what can't become a banknote (a failed swap, a payment
 after the deadline, an overpayment): the money returns to the address that
 paid, on the same chain and in the same token. Amounts smaller than the
@@ -191,6 +193,9 @@ is asked only the first time.
 The ATM sells only while a blank banknote is on the NFC reader; otherwise the
 kiosk shows "Out of service": the ATM never takes a payment it can't turn
 into a banknote. `pnpm atm:reader` checks the reader and the card on it.
+Every blank card needs a birth certificate from the bank's production key
+first (`pnpm card:birth`); for a demo with cards that never got one, add
+`--skip-mpc --skip-birth`.
 
 Before the reader arrives, `pnpm atm:demo --dummy-reader <user>@<raspberry-address>`
 tests the whole sale with the printed dummy reader in the turret. Once a sale

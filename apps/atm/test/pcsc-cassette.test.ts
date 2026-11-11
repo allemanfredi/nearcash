@@ -17,6 +17,8 @@ const SELECT_NEARCASH = '00a4040007f04e42414e4b01';
 class FakeCard {
   hasApplet = true;
   state: number = CardState.EMPTY;
+  /** Has a birth certificate (protocol.md §5.8), as the bank's blank cards do. */
+  born = true;
   /** Sends overlapping in time would be a bug: the reader carries one APDU at a time. */
   inFlight = 0;
   maxInFlight = 0;
@@ -30,7 +32,11 @@ class FakeCard {
     const hex = Buffer.from(command).toString('hex');
     this.received.push(hex);
     if (hex === SELECT_NEARCASH) return this.hasApplet ? Uint8Array.of(0x90, 0x00) : Uint8Array.of(0x6a, 0x82);
-    if (hex.startsWith('80100000')) return Uint8Array.of(0x01, this.state, 5, 0x00, 0x00, 0x90, 0x00); // INFO, no keys
+    if (hex.startsWith('80100000')) return Uint8Array.of(0x02, this.state, 5, 0x00, 0x00, 0x90, 0x00); // INFO, no keys
+    if (hex.startsWith('80140000')) {
+      // GET_BIRTH: pubC (65) ‖ birth signature (64); a card never born answers 6985.
+      return this.born ? Uint8Array.of(0x04, ...new Uint8Array(64).fill(1), ...new Uint8Array(64).fill(2), 0x90, 0x00) : Uint8Array.of(0x69, 0x85);
+    }
     return Uint8Array.of(0x6d, 0x00);
   }
 
@@ -133,6 +139,16 @@ describe('PC/SC cassette', () => {
     expect(await cassette.unavailableReason()).toMatch(/not blank \(it is ISSUED\)/);
   });
 
+  it('refuses a blank card that was never born, unless a demo skips birth certificates', async () => {
+    const { cassette, plug, readers } = setUp();
+    const reader = plug('reader');
+    const unborn = new FakeCard();
+    unborn.born = false;
+    reader.place(unborn);
+    expect(await cassette.unavailableReason()).toMatch(/no birth certificate/);
+    expect(await new PcscCassette(readers, undefined, false).unavailableReason()).toBeNull();
+  });
+
   it('never talks to a card put on the reader after the one it handed out', async () => {
     const { cassette, plug } = setUp();
     const reader = plug('reader');
@@ -228,11 +244,20 @@ describe('T=0 answers in two steps (contact readers)', () => {
 describe('cassette configuration', () => {
   it('reads NEARCASH_CASSETTE and NEARCASH_READER', () => {
     expect(atmConfigFromEnvironment({}).cassette).toEqual({ kind: 'none' });
-    expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc' }).cassette).toEqual({ kind: 'pcsc', readerName: undefined });
+    expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc' }).cassette).toEqual({
+      kind: 'pcsc',
+      readerName: undefined,
+      requireBirth: true,
+    });
     expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc', NEARCASH_READER: 'ACR122' }).cassette).toEqual({
       kind: 'pcsc',
       readerName: 'ACR122',
+      requireBirth: true,
     });
+    expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc', NEARCASH_SKIP_BIRTH: 'true' }).cassette).toMatchObject({
+      requireBirth: false,
+    });
+    expect(() => atmConfigFromEnvironment({ NEARCASH_SKIP_BIRTH: 'maybe' })).toThrow(/true or false/);
     expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'dummy' }).cassette).toEqual({ kind: 'dummy' });
     expect(() => atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'usb' })).toThrow(/must be "pcsc"/);
   });

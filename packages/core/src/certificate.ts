@@ -5,6 +5,7 @@
  * bytes. Anyone can read it with GET_CERT and check, offline, that a trusted
  * issuer vouches for this card's keys, amount and token.
  */
+import type { BirthProof } from './birth.ts';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { ByteReader, concatBytes, equalBytes, lengthPrefixedUtf8, uintToBytes, utf8ToBytes } from './bytes.ts';
 import type { CertificateSigner } from './signer.ts';
@@ -61,7 +62,11 @@ export function compressPublicKey(publicKey: Uint8Array): Uint8Array {
  * normalised to low-s and checked before being returned, so a bad answer
  * from the signer can never end up on a card.
  */
-export async function issueCertificate(fields: CertificateFields, signer: CertificateSigner): Promise<Certificate> {
+export async function issueCertificate(
+  fields: CertificateFields,
+  signer: CertificateSigner,
+  birth?: BirthProof,
+): Promise<Certificate> {
   const issuerPublicKey = compressPublicKey(await signer.publicKey());
   const normalized: CertificateFields = {
     ...fields,
@@ -71,7 +76,7 @@ export async function issueCertificate(fields: CertificateFields, signer: Certif
   const body = encodeCertificateBody(normalized, issuerPublicKey);
   // If the signer rebuilt a different body (e.g. the issuer contract with
   // another configuration), the check below fails: nothing wrong is issued.
-  const signature = toLowS(await signer.sign({ fields: normalized, body }));
+  const signature = toLowS(await signer.sign({ fields: normalized, body, ...(birth ? { birth } : {}) }));
 
   // Parse what we just built: every certificate we issue must be readable…
   const certificate = decodeCertificate(concatBytes(body, signature));

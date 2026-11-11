@@ -10,6 +10,8 @@
  *     the payment came from (features/refunds). Never to a card.
  *  2. A card is funded and certified only after the server itself has read
  *     SUCCESS for that quote from the payment gateway. ATMs are never believed.
+ *     And only a card the bank made: its chip's birth certificate is checked
+ *     before anything is bound or funded (protocol.md §5.8).
  *  3. One payment buys exactly one card: the first card presented is bound
  *     to the sale; any other card is refused, the same card gets the same
  *     certificate back (safe retry).
@@ -19,6 +21,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  type BirthProof,
   type CardPublicKeys,
   type Sale,
   bytesToHex,
@@ -114,11 +117,14 @@ export class SalesService {
     return toPublicSale(record);
   }
 
-  /** Rules 2–5: fund the card inside FAR, then have its certificate signed. */
-  issue(id: string, keys: CardPublicKeys): Promise<Uint8Array> {
+  /**
+   * Rules 2–5: fund the card inside FAR, then have its certificate signed.
+   * `birth`: the chip's birth certificate and its signature over the keys.
+   */
+  issue(id: string, keys: CardPublicKeys, birth?: BirthProof): Promise<Uint8Array> {
     // Serialise per sale (rule 4 relies on it).
     const previous = this.locks.get(id) ?? Promise.resolve();
-    const run = previous.catch(() => undefined).then(() => this.issueNow(id, keys));
+    const run = previous.catch(() => undefined).then(() => this.issueNow(id, keys, birth));
     this.locks.set(id, run);
     return run;
   }
@@ -128,7 +134,7 @@ export class SalesService {
     return this.requireSale(id).depositAddress;
   }
 
-  private async issueNow(id: string, keys: CardPublicKeys): Promise<Uint8Array> {
+  private async issueNow(id: string, keys: CardPublicKeys, birth: BirthProof | undefined): Promise<Uint8Array> {
     const record = this.requireSale(id);
     let authKey: string;
     let fundsKey: string;
@@ -150,6 +156,11 @@ export class SalesService {
     if (payment !== 'SUCCESS') {
       throw new DomainError('payment-required', `payment not confirmed (${payment}): no banknote`);
     }
+
+    // Rule 2, the card: only a chip the bank made, vouching for these keys.
+    // Before binding or funding: the issuer contract would refuse it later,
+    // and the value sent to it could never move again.
+    await this.certificates.checkBirth(keys, birth);
 
     const denomination = await this.certificates.denomination(BigInt(record.amount));
     if (!record.card) {
@@ -179,16 +190,19 @@ export class SalesService {
     }
 
     // The card is funded: have the certificate signed (MPC) and remember it.
-    const certificate = await this.certificates.certify({
-      authPublicKey: hexToBytes(record.card.authPublicKey),
-      fundsPublicKey: hexToBytes(record.card.fundsPublicKey),
-      amount: denomination.amount,
-      decimals: denomination.decimals,
-      issuedAt: record.card.issuedAt,
-      tokenId: denomination.tokenId,
-      symbol: denomination.symbol,
-      contractId: denomination.contractId,
-    });
+    const certificate = await this.certificates.certify(
+      {
+        authPublicKey: hexToBytes(record.card.authPublicKey),
+        fundsPublicKey: hexToBytes(record.card.fundsPublicKey),
+        amount: denomination.amount,
+        decimals: denomination.decimals,
+        issuedAt: record.card.issuedAt,
+        tokenId: denomination.tokenId,
+        symbol: denomination.symbol,
+        contractId: denomination.contractId,
+      },
+      birth,
+    );
     record.certificate = bytesToHex(certificate.bytes);
     record.status = 'ISSUED';
     this.sales.put(record);

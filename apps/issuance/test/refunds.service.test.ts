@@ -62,7 +62,7 @@ function setup() {
     paymentWindowMinutes: 30,
     refunds: { sweepSeconds: 0, watchHours: 24 },
   } as IssuanceConfig;
-  const salesService = new SalesService(sales, gateway, new CountingReserve(), new CertificatesService(new TestAuthority()), clock, config);
+  const salesService = new SalesService(sales, gateway, new CountingReserve(), new CertificatesService(new TestAuthority(), { birthCertificates: 'required' }), clock, config);
   const service = new RefundsService(sales, refunds, gateway, senders, refundSender, clock, config);
   return { clock, gateway, sales, refunds, senders, refundSender, salesService, service };
 }

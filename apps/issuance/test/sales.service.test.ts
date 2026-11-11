@@ -14,6 +14,7 @@ import {
   issueDay,
   verifyCertificateSignature,
 } from '@nearcash/core';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { describe, expect, it } from 'vitest';
 import { systemClock } from '../src/common/clock.ts';
 import { DomainError } from '../src/common/domain-error.ts';
@@ -23,16 +24,25 @@ import type { QuoteRequest } from '../src/features/payments/payment-gateway.port
 import { SimulatedGateway } from '../src/features/payments/simulated.gateway.ts';
 import { SalesService } from '../src/features/sales/sales.service.ts';
 import { JsonFileSaleRepository } from '../src/features/sales/json-file-sale.repository.ts';
-import { CountingReserve, TEN, TestAuthority, cardKeys } from './fakes.ts';
+import { CountingReserve, TEN, TestAuthority, bornCard, cardKeys } from './fakes.ts';
 
 /** Only the settings the sales rules read. */
 const CONFIG = { reserveAccountId: 'bank-reserve.far', paymentWindowMinutes: 30 } as IssuanceConfig;
 
-function setup(options: { salesFile?: string; signer?: CertificateSigner; reserve?: CountingReserve } = {}) {
+function setup(
+  options: {
+    salesFile?: string;
+    signer?: CertificateSigner;
+    reserve?: CountingReserve;
+    birthCertificates?: IssuanceConfig['birthCertificates'];
+  } = {},
+) {
   const gateway = new SimulatedGateway();
   const reserve = options.reserve ?? new CountingReserve();
   const repository = new JsonFileSaleRepository(options.salesFile);
-  const certificates = new CertificatesService(new TestAuthority(options.signer));
+  const certificates = new CertificatesService(new TestAuthority(options.signer), {
+    birthCertificates: options.birthCertificates ?? 'required',
+  });
   const sales = new SalesService(repository, gateway, reserve, certificates, systemClock, CONFIG);
   return { sales, gateway, reserve, repository };
 }
@@ -87,7 +97,7 @@ describe('selling a banknote', () => {
     };
     // The reserve holds USDC on Ethereum, as NEARCASH_RESERVE_TOKEN says.
     const config = { ...CONFIG, reserveTokenId: usdc.ethereum } as IssuanceConfig;
-    const certificates = new CertificatesService(new TestAuthority());
+    const certificates = new CertificatesService(new TestAuthority(), { birthCertificates: 'required' });
     const sales = new SalesService(new JsonFileSaleRepository(undefined), gateway, new CountingReserve(), certificates, systemClock, config);
 
     await sales.createSale({ amount: TEN, originAsset: usdc.base }); // another USDC
@@ -114,8 +124,8 @@ describe('selling a banknote', () => {
     const sale = await paidSale(context);
     expect((await context.sales.getSale(sale.id)).status).toBe('PAID');
 
-    const keys = cardKeys();
-    const certificate = decodeCertificate(await context.sales.issue(sale.id, keys));
+    const { keys, birth } = bornCard();
+    const certificate = decodeCertificate(await context.sales.issue(sale.id, keys, birth));
 
     expect(verifyCertificateSignature(certificate)).toBe(true);
     expect(certificate.amount).toBe(TEN);
@@ -142,9 +152,9 @@ describe('one payment, one card', () => {
   it('the same card gets the same certificate again, funded once', async () => {
     const context = setup();
     const sale = await paidSale(context);
-    const keys = cardKeys();
-    const first = await context.sales.issue(sale.id, keys);
-    const again = await context.sales.issue(sale.id, keys);
+    const { keys, birth } = bornCard();
+    const first = await context.sales.issue(sale.id, keys, birth);
+    const again = await context.sales.issue(sale.id, keys, birth);
     expect(bytesToHex(again)).toBe(bytesToHex(first));
     expect(context.reserve.calls).toBe(1);
   });
@@ -152,16 +162,18 @@ describe('one payment, one card', () => {
   it('a second card cannot use the same payment', async () => {
     const context = setup();
     const sale = await paidSale(context);
-    await context.sales.issue(sale.id, cardKeys());
-    await expectDomainError(context.sales.issue(sale.id, cardKeys()), 'conflict');
+    const first = bornCard();
+    await context.sales.issue(sale.id, first.keys, first.birth);
+    const second = bornCard();
+    await expectDomainError(context.sales.issue(sale.id, second.keys, second.birth), 'conflict');
     expect(context.reserve.calls).toBe(1);
   });
 
   it('concurrent requests for one sale fund the card once', async () => {
     const context = setup();
     const sale = await paidSale(context);
-    const keys = cardKeys();
-    await Promise.all([context.sales.issue(sale.id, keys), context.sales.issue(sale.id, keys), context.sales.issue(sale.id, keys)]);
+    const { keys, birth } = bornCard();
+    await Promise.all([context.sales.issue(sale.id, keys, birth), context.sales.issue(sale.id, keys, birth), context.sales.issue(sale.id, keys, birth)]);
     expect(context.reserve.calls).toBe(1);
   });
 
@@ -169,12 +181,63 @@ describe('one payment, one card', () => {
     const salesFile = join(mkdtempSync(join(tmpdir(), 'nearcash-issuance-')), 'sales.json');
     const before = setup({ salesFile });
     const sale = await paidSale(before);
-    const keys = cardKeys();
-    const certificate = await before.sales.issue(sale.id, keys);
+    const { keys, birth } = bornCard();
+    const certificate = await before.sales.issue(sale.id, keys, birth);
 
     const after = setup({ salesFile }); // a new process reading the same file
-    expect(bytesToHex(await after.sales.issue(sale.id, keys))).toBe(bytesToHex(certificate));
+    expect(bytesToHex(await after.sales.issue(sale.id, keys, birth))).toBe(bytesToHex(certificate));
     await expectDomainError(after.sales.issue(sale.id, cardKeys()), 'conflict');
+  });
+});
+
+describe('only cards the bank made (birth certificates)', () => {
+  it('a card without a birth certificate is refused before anything is bound or funded', async () => {
+    const context = setup();
+    const sale = await paidSale(context);
+    await expectDomainError(context.sales.issue(sale.id, cardKeys()), 'invalid-request');
+    expect(context.repository.get(sale.id)?.card).toBeUndefined();
+    expect(context.reserve.calls).toBe(0);
+    // The sale is still there for a card the bank made.
+    const card = bornCard();
+    expect(verifyCertificateSignature(decodeCertificate(await context.sales.issue(sale.id, card.keys, card.birth)))).toBe(true);
+  });
+
+  it('a chip born with another production key is refused', async () => {
+    const context = setup();
+    const sale = await paidSale(context);
+    const forged = bornCard(secp256k1.utils.randomSecretKey()); // not the bank's production key
+    await expect(context.sales.issue(sale.id, forged.keys, forged.birth)).rejects.toThrow(/production key/);
+    expect(context.reserve.calls).toBe(0);
+  });
+
+  it("keys the chip did not sign are refused (another card's birth)", async () => {
+    const context = setup();
+    const sale = await paidSale(context);
+    await expect(context.sales.issue(sale.id, cardKeys(), bornCard().birth)).rejects.toThrow(/did not sign these keys/);
+    expect(context.reserve.calls).toBe(0);
+  });
+
+  it('the birth reaches the signer (the issuer contract checks it again)', async () => {
+    const seen: unknown[] = [];
+    const recordingSigner: CertificateSigner = {
+      name: 'recording',
+      publicKey: () => DEV_ISSUER_SIGNER.publicKey(),
+      sign: async (request) => {
+        seen.push(request.birth);
+        return DEV_ISSUER_SIGNER.sign(request);
+      },
+    };
+    const context = setup({ signer: recordingSigner });
+    const sale = await paidSale(context);
+    const card = bornCard();
+    await context.sales.issue(sale.id, card.keys, card.birth);
+    expect(seen).toEqual([card.birth]);
+  });
+
+  it('skipped for demos (NEARCASH_SKIP_BIRTH): a card never born is issued', async () => {
+    const context = setup({ birthCertificates: 'skipped' });
+    const sale = await paidSale(context);
+    expect(verifyCertificateSignature(decodeCertificate(await context.sales.issue(sale.id, cardKeys())))).toBe(true);
   });
 });
 
@@ -184,11 +247,11 @@ describe('never funding twice', () => {
     reserve.failNext = true;
     const context = setup({ reserve });
     const sale = await paidSale(context);
-    const keys = cardKeys();
+    const { keys, birth } = bornCard();
 
-    await expect(context.sales.issue(sale.id, keys)).rejects.toThrow(/relay timeout/);
+    await expect(context.sales.issue(sale.id, keys, birth)).rejects.toThrow(/relay timeout/);
     // The outcome of that transfer is unknown: do not send another one.
-    await expectDomainError(context.sales.issue(sale.id, keys), 'needs-operator');
+    await expectDomainError(context.sales.issue(sale.id, keys, birth), 'needs-operator');
     expect(reserve.calls).toBe(1);
   });
 
@@ -204,10 +267,10 @@ describe('never funding twice', () => {
     };
     const context = setup({ signer: flakySigner });
     const sale = await paidSale(context);
-    const keys = cardKeys();
+    const { keys, birth } = bornCard();
 
-    await expect(context.sales.issue(sale.id, keys)).rejects.toThrow(/MPC timeout/);
-    const certificate = decodeCertificate(await context.sales.issue(sale.id, keys));
+    await expect(context.sales.issue(sale.id, keys, birth)).rejects.toThrow(/MPC timeout/);
+    const certificate = decodeCertificate(await context.sales.issue(sale.id, keys, birth));
     expect(verifyCertificateSignature(certificate)).toBe(true);
     expect(context.reserve.calls).toBe(1);
   });

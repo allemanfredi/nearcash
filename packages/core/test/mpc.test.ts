@@ -9,19 +9,26 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { base58 } from '@scure/base';
 import { describe, expect, it } from 'vitest';
 import {
+  type BirthProof,
   type CertificateFields,
+  DEV_PRODUCTION_PUBLIC_KEY,
+  DEV_PRODUCTION_SECRET_KEY,
   type IssuerContractConfig,
   MpcCertificateSigner,
   type MpcIssuerClient,
   type SignCertificateArgs,
+  birthProblem,
   bytesToHex,
   deriveMpcPublicKey,
   encodeCertificateBody,
   hexToBytes,
   issueCertificate,
+  keysMessage,
   mpcSignatureToCompact,
   mpcTweak,
   parseNearSecp256k1Key,
+  signBirth,
+  toBirthProof,
   verifyCertificateSignature,
 } from '../src/index.ts';
 
@@ -67,6 +74,7 @@ class FakeMpcNetwork implements MpcIssuerClient {
     funds_contract_id: 'intents.near',
     denominations: ['10000000000000000'],
     daily_value_cap: '1000000000000000000',
+    production_public_key: bytesToHex(DEV_PRODUCTION_PUBLIC_KEY),
   };
 
   async contractConfig(): Promise<IssuerContractConfig> {
@@ -84,7 +92,18 @@ class FakeMpcNetwork implements MpcIssuerClient {
   }
 
   async signCertificate(args: SignCertificateArgs): Promise<unknown> {
-    // Like contracts/issuer: the body is built here, from the request and the config.
+    // Like contracts/issuer: only keys a born chip vouches for (protocol.md §5.8)…
+    const problem = birthProblem(
+      {
+        chipPublicKey: hexToBytes(args.chip_public_key),
+        birthSignature: hexToBytes(args.birth_signature),
+        keysSignature: hexToBytes(args.keys_signature),
+      },
+      { authPublicKey: hexToBytes(args.auth_public_key), fundsPublicKey: hexToBytes(args.funds_public_key) },
+      hexToBytes(this.config.production_public_key!),
+    );
+    if (problem) throw new Error(`contract refused: ${problem}`);
+    // …and the body is built here, from the request and the config.
     const body = encodeCertificateBody(
       {
         authPublicKey: hexToBytes(args.auth_public_key),
@@ -133,6 +152,18 @@ function sampleFields(): CertificateFields {
   };
 }
 
+/** A card born with the DEV production key: its fields, and the chip's proof for its keys. */
+function sampleCard(): { fields: CertificateFields; birth: BirthProof } {
+  const fields = sampleFields();
+  const chipSecret = secp256k1.utils.randomSecretKey();
+  const chipPublicKey = secp256k1.getPublicKey(chipSecret, false);
+  const keysSignature = secp256k1.sign(sha256(keysMessage(fields.authPublicKey, fields.fundsPublicKey)), chipSecret, {
+    prehash: false,
+    format: 'der',
+  });
+  return { fields, birth: toBirthProof(chipPublicKey, signBirth(chipPublicKey, DEV_PRODUCTION_SECRET_KEY), keysSignature) };
+}
+
 describe('MPC key derivation', () => {
   it('reproduces the key NEAR testnet derives for our issuer contract', () => {
     const derived = deriveMpcPublicKey(parseNearSecp256k1Key(TESTNET.rootKey), TESTNET.predecessor, TESTNET.path);
@@ -166,7 +197,8 @@ describe('certificates signed by (a stand-in for) the MPC network', () => {
       network.highS = highS;
       const signer = new MpcCertificateSigner(network, 'fake MPC');
 
-      const certificate = await issueCertificate(sampleFields(), signer);
+      const card = sampleCard();
+      const certificate = await issueCertificate(card.fields, signer, card.birth);
 
       expect(verifyCertificateSignature(certificate)).toBe(true);
       expect(bytesToHex(certificate.issuerPublicKey)).toBe(bytesToHex(await signer.publicKey()));
@@ -184,15 +216,36 @@ describe('certificates signed by (a stand-in for) the MPC network', () => {
       },
       'mismatched MPC',
     );
-    await expect(issueCertificate(sampleFields(), signer)).rejects.toThrow(/does not verify/);
+    const card = sampleCard();
+    await expect(issueCertificate(card.fields, signer, card.birth)).rejects.toThrow(/does not verify/);
   });
 
   it('refuses to issue when the contract would sign different content', async () => {
     const network = new FakeMpcNetwork();
     network.config = { ...network.config, symbol: 'USDC' }; // the contract's idea of the banknote differs
-    await expect(issueCertificate(sampleFields(), new MpcCertificateSigner(network, 'fake MPC'))).rejects.toThrow(
+    const card = sampleCard();
+    await expect(issueCertificate(card.fields, new MpcCertificateSigner(network, 'fake MPC'), card.birth)).rejects.toThrow(
       /does not verify/,
     );
+  });
+
+  it('a card without a birth certificate is never sent to the contract', async () => {
+    const signer = new MpcCertificateSigner(new FakeMpcNetwork(), 'fake MPC');
+    await expect(issueCertificate(sampleFields(), signer)).rejects.toThrow(/birth certificate/);
+  });
+
+  it("the contract checks the birth: another card's proof is refused", async () => {
+    const signer = new MpcCertificateSigner(new FakeMpcNetwork(), 'fake MPC');
+    const card = sampleCard();
+    await expect(issueCertificate(card.fields, signer, sampleCard().birth)).rejects.toThrow(/did not sign these keys/);
+  });
+
+  it('reads the production key from the contract', async () => {
+    const signer = new MpcCertificateSigner(new FakeMpcNetwork(), 'fake MPC');
+    expect(bytesToHex(await signer.productionPublicKey())).toBe(bytesToHex(DEV_PRODUCTION_PUBLIC_KEY));
+    const old = new FakeMpcNetwork();
+    delete old.config.production_public_key; // deployed before birth certificates
+    await expect(new MpcCertificateSigner(old, 'old contract').productionPublicKey()).rejects.toThrow(/no production key/);
   });
 
   it('takes token and denominations from the contract', async () => {

@@ -4,7 +4,8 @@
  *   pnpm atm:reader                    lists the readers, waits for a card, shows it
  *   NEARCASH_READER=acr pnpm atm:reader   picks the reader whose name contains "acr"
  *
- * For a blank card it shows the state; for a banknote it runs the full
+ * For a blank card it shows the state and whether it has a birth
+ * certificate (docs/protocol.md §5.8); for a banknote it runs the full
  * receiver check (certificate, keys, AUTH), as the wallet app would. It only
  * reads: it never changes the card.
  *
@@ -81,7 +82,14 @@ try {
       console.log(`✘ ${check.failure}: ${check.detail}`);
     }
   } else if (info.state === CardState.EMPTY) {
-    console.log('✔ blank card: ready for the ATM');
+    const birth = await card.readBirth();
+    if (birth) {
+      console.log(`  chip key C: ${bytesToHex(birth.chipPublicKey)} (born)`);
+      console.log('✔ blank card with a birth certificate: ready for the ATM');
+    } else {
+      console.log('✔ blank card, but never born: give it a birth certificate first (pnpm card:birth),');
+      console.log('  or sell it only in a demo that skips them (--skip-birth)');
+    }
   }
 } catch (error) {
   console.error(`✘ ${error instanceof Error ? error.message : String(error)}`);

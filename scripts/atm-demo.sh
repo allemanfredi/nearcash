@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # NearCash ATM demo in one command:
 #
-#   scripts/atm-demo.sh [--skip-mpc] [--dummy-reader] <[user@]raspberry-address> [password]
-#   pnpm atm:demo [--skip-mpc] [--dummy-reader] <[user@]raspberry-address> [password]
+#   scripts/atm-demo.sh [--skip-mpc] [--skip-birth] [--dummy-reader] <[user@]raspberry-address> [password]
+#   pnpm atm:demo [--skip-mpc] [--skip-birth] [--dummy-reader] <[user@]raspberry-address> [password]
 #
 #   --skip-mpc   the issuance server signs the banknotes' certificates itself,
 #                with the public DEV key, instead of asking the NEAR MPC
@@ -11,6 +11,13 @@
 #                trusts the key because it asks the issuance server, the
 #                wallet app only in its Debug builds. (Without the flag:
 #                NEAR MPC, unless .env.issuance sets NEARCASH_SKIP_MPC=true.)
+#
+#   --skip-birth  cards that were never born (no birth certificate from the
+#                bank's production key, docs/protocol.md §5.8) are sold too:
+#                for demos with cards not given one (pnpm card:birth). Needs
+#                --skip-mpc: the issuer contract always checks the birth.
+#                (Without the flag: a card without a birth certificate puts
+#                the ATM out of service.)
 #
 #   --dummy-reader  the printed dummy reader (plate 15) is in the turret instead
 #                of the NFC reader: the whole sale and the mechanics can be
@@ -93,11 +100,13 @@ quietly() {
 
 # Options anywhere; the rest are the address and the password, in this order.
 SKIP_MPC=0
+SKIP_BIRTH=0
 DUMMY_READER=0
 ARGS=()
 for argument in "$@"; do
   case "$argument" in
     --skip-mpc) SKIP_MPC=1 ;;
+    --skip-birth) SKIP_BIRTH=1 ;;
     --dummy-reader) DUMMY_READER=1 ;;
     -h | --help) usage ;;
     -*) die "unknown option \"$argument\" (see: scripts/atm-demo.sh --help)" ;;
@@ -157,6 +166,16 @@ if [ "$SKIP_MPC" = 1 ]; then
 else
   CERTIFICATES="signed by the NEAR MPC network, through the issuer contract"
   info "certificates: NEAR MPC (add --skip-mpc to sign them on this computer, for a demo)"
+fi
+# The chips' birth certificates. Skipping them is possible only when this
+# computer signs the certificates: the issuer contract always checks them.
+if [ "$SKIP_BIRTH" = 1 ]; then
+  [ "$SKIP_MPC" = 1 ] || die "--skip-birth needs --skip-mpc: the issuer contract always checks the birth certificate"
+  BIRTH="skipped: cards that were never born are sold too (demo)"
+  warn "Birth certificates skipped: a card the bank did not make would be issued too."
+else
+  BIRTH="required: only cards born with the production key (pnpm card:birth)"
+  info "birth certificates: required (add --skip-birth to sell cards that were never born, for a demo)"
 fi
 # Which reader is in the turret. With the dummy, a paid sale issues nothing:
 # with real payments (NEARCASH_PAYMENTS=1click) the money stays in the reserve.
@@ -355,6 +374,11 @@ fi
     echo "NEARCASH_CASSETTE=pcsc   # the NFC reader; out of service until a blank card is on it"
     echo "NEARCASH_DISPENSER=sim"
   fi
+  if [ "$SKIP_BIRTH" = 1 ]; then
+    echo "NEARCASH_SKIP_BIRTH=true # demo: a blank card without a birth certificate is sold too"
+  else
+    echo "NEARCASH_SKIP_BIRTH=false"
+  fi
   echo "# kiosk page (apps/kiosk)"
   echo "NEARCASH_KIOSK_HOST=0.0.0.0"
   echo "NEARCASH_KIOSK_PORT=$KIOSK_PORT"
@@ -448,8 +472,10 @@ loop_script "$LOCAL_RUN/raspberry.sh" "$ROOT" "Raspberry Pi" \
 # run says (variables set here win over .env.issuance).
 SKIP_MPC_VALUE=false
 [ "$SKIP_MPC" = 1 ] && SKIP_MPC_VALUE=true
+SKIP_BIRTH_VALUE=false
+[ "$SKIP_BIRTH" = 1 ] && SKIP_BIRTH_VALUE=true
 loop_script "$LOCAL_RUN/issuance.sh" "$ROOT" "issuance server" \
-  "NEARCASH_ISSUANCE_HOST=0.0.0.0 NEARCASH_ISSUANCE_PORT=$ISSUANCE_PORT NEARCASH_SKIP_MPC=$SKIP_MPC_VALUE node apps/issuance/dist/main.js"
+  "NEARCASH_ISSUANCE_HOST=0.0.0.0 NEARCASH_ISSUANCE_PORT=$ISSUANCE_PORT NEARCASH_SKIP_MPC=$SKIP_MPC_VALUE NEARCASH_SKIP_BIRTH=$SKIP_BIRTH_VALUE node apps/issuance/dist/main.js"
 loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   "pnpm --filter @nearcash/website exec vite preview --host 0.0.0.0 --port $WEBSITE_PORT --strictPort"
 
@@ -461,6 +487,7 @@ loop_script "$LOCAL_RUN/website.sh" "$ROOT" "website" \
   echo "  Website            http://localhost:$WEBSITE_PORT    ·    http://$LAPTOP_ADDRESS:$WEBSITE_PORT"
   echo "  Issuance server    http://$LAPTOP_ADDRESS:$ISSUANCE_PORT   (configuration: .env.issuance)"
   echo "  Certificates       $CERTIFICATES"
+  echo "  Birth certificates $BIRTH"
   echo "  Reader             $READER"
   echo
   echo "The Pi's session, directly (ATM server and kiosk page; Ctrl-b d leaves it running):"

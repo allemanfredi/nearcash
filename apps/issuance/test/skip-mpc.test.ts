@@ -6,6 +6,7 @@
 import 'reflect-metadata';
 import {
   DEV_ISSUER,
+  DEV_PRODUCTION_PUBLIC_KEY,
   HttpIssuanceClient,
   type IssuerContractConfig,
   type IssuerContractReader,
@@ -21,7 +22,7 @@ import { ConfigurationError, type IssuanceConfig, issuanceConfigFromEnvironment 
 import { CERTIFICATE_AUTHORITY } from '../src/features/certificates/certificate-authority.port.ts';
 import { CertificatesService } from '../src/features/certificates/certificates.service.ts';
 import { SkipMpcCertificateAuthority } from '../src/features/certificates/skip-mpc-certificate-authority.ts';
-import { cardKeys } from './fakes.ts';
+import { bornCard, cardKeys } from './fakes.ts';
 
 /** 5 USDC: the issuer contract's banknote in these tests (not the DEV key's 0.01 ETH). */
 const FIVE_USDC = 5_000_000n;
@@ -40,6 +41,8 @@ class FakeIssuerContract implements IssuerContractReader {
     funds_contract_id: 'intents.far',
     denominations: [FIVE_USDC.toString(), '10000000'],
     daily_value_cap: '1000000000',
+    // Test chips are born with the public DEV production key.
+    production_public_key: bytesToHex(DEV_PRODUCTION_PUBLIC_KEY),
   };
 
   async contractConfig(): Promise<IssuerContractConfig> {
@@ -92,7 +95,7 @@ describe('the issuance server signs certificates itself', () => {
   it('for the banknotes of the issuer contract, with the public DEV key', async () => {
     const contract = new FakeIssuerContract();
     const authority = new SkipMpcCertificateAuthority(contract);
-    const certificates = new CertificatesService(authority);
+    const certificates = new CertificatesService(authority, { birthCertificates: 'required' });
 
     expect(await certificates.allowedAmounts()).toEqual([FIVE_USDC, 10_000_000n]);
     const denomination = await certificates.denomination(FIVE_USDC);
@@ -141,6 +144,7 @@ describe('a whole sale with MPC skipped, through the HTTP API', () => {
         simulatedNetworkFee: 1000n,
       },
       http: { host: '127.0.0.1', port: 0 },
+      birthCertificates: 'required',
     };
     // The real module, with the contract's view answered here instead of by NEAR.
     const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] })
@@ -162,7 +166,10 @@ describe('a whole sale with MPC skipped, through the HTTP API', () => {
 
     const sale = await atm.createSale({ amount: FIVE_USDC, originAsset: 'base:usdc', refundTo: '0xuser' });
     await atm.simulatePayment(sale.id);
-    const certificate = decodeCertificate(await atm.issue(sale.id, cardKeys()));
+    // A card the bank did not make is refused; one born with the contract's production key is issued.
+    await expect(atm.issue(sale.id, cardKeys())).rejects.toThrow(/400.*birth certificate/);
+    const card = bornCard();
+    const certificate = decodeCertificate(await atm.issue(sale.id, card.keys, card.birth));
     expect(verifyCertificateSignature(certificate)).toBe(true);
     expect(bytesToHex(certificate.issuerPublicKey)).toBe(bytesToHex(issuer.publicKey));
     expect(certificate.symbol).toBe('USDC');

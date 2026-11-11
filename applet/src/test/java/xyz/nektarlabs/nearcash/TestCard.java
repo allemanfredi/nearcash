@@ -94,6 +94,33 @@ final class TestCard {
         return send(0x40, 0, 0, null, 256);
     }
 
+    /** CHIP_KEY: creates C (the first time) and answers pubC. */
+    ResponseAPDU chipKey() {
+        return send(0x50, 0, 0, null, 256);
+    }
+
+    /** STORE_BIRTH with the 64-byte birth signature. */
+    ResponseAPDU storeBirth(byte[] birthSignature) {
+        return send(0x52, 0, 0, birthSignature, 0);
+    }
+
+    /** GET_BIRTH: pubC (65) || birth signature (64) [|| keys signature]. */
+    ResponseAPDU getBirth() {
+        return send(0x14, 0, 0, null, 256);
+    }
+
+    /**
+     * The factory step (protocol.md §9, Card preparation): CHIP_KEY, then
+     * STORE_BIRTH. The card treats the birth signature as opaque bytes.
+     * Returns pubC.
+     */
+    byte[] giveBirth(byte[] birthSignature) {
+        ResponseAPDU chipKey = chipKey();
+        assertEquals(SW_OK, chipKey.getSW(), "CHIP_KEY");
+        assertEquals(SW_OK, storeBirth(birthSignature).getSW(), "STORE_BIRTH");
+        return chipKey.getData();
+    }
+
     ResponseAPDU storeCertificateChunk(int offset, byte[] chunk) {
         return send(0x42, (offset >> 8) & 0xFF, offset & 0xFF, chunk, 0);
     }

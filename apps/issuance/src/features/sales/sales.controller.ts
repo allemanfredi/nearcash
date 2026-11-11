@@ -2,12 +2,14 @@ import { type Sale, bytesToHex } from '@nearcash/core';
 import { Body, Controller, Get, HttpCode, Logger, Param, Post } from '@nestjs/common';
 import { CallingAtm } from '../../common/atm-auth.guard.ts';
 import { SalesService } from './sales.service.ts';
-import { parseCardKeys, parseCreateSale } from './sales.requests.ts';
+import { parseCreateSale, parseIssueRequest } from './sales.requests.ts';
 
 /**
  *   POST /sales              {amount, originAsset, refundTo?} → sale with deposit address
  *   GET  /sales/:id          sale, payment status refreshed
- *   POST /sales/:id/issue    {authPublicKey, fundsPublicKey} (hex) → {certificate} (hex)
+ *   POST /sales/:id/issue    {authPublicKey, fundsPublicKey, birth?} (hex) → {certificate} (hex)
+ *                            birth = {chipPublicKey, birthSignature, keysSignature}: the chip's
+ *                            birth certificate (protocol.md §5.8), required unless skipped for a demo
  */
 @Controller('sales')
 export class SalesController {
@@ -34,7 +36,8 @@ export class SalesController {
     @Body() body: Record<string, unknown>,
     @CallingAtm() atm: string,
   ): Promise<{ certificate: string }> {
-    const certificate = await this.sales.issue(id, parseCardKeys(body));
+    const { keys, birth } = parseIssueRequest(body);
+    const certificate = await this.sales.issue(id, keys, birth);
     this.logger.log(`[${atm}] sale ${id}: banknote issued`);
     return { certificate: bytesToHex(certificate) };
   }

@@ -9,6 +9,9 @@
  *   NEARCASH_SKIP_MPC   false (default) | true  demos: with the mpc signer, the issuance server
  *                                               signs certificates itself (public DEV key)
  *                                               instead of asking the NEAR MPC network
+ *   NEARCASH_SKIP_BIRTH false (default) | true  demos: cards without a birth certificate are
+ *                                               issued too (protocol.md §5.8); only without MPC
+ *                                               (skip-mpc or dev), the issuer contract always checks it
  *   NEARCASH_PAYMENTS   simulated (default) | 1click
  *   NEARCASH_RESERVE    simulated (default) | far     FAR: transfers through 1Click
  *   NEARCASH_1CLICK_API_KEY   1Click partner key (JWT): required for anything on FAR
@@ -47,6 +50,12 @@ export type IssuanceConfig = {
     | { kind: 'mpc'; mpc: MpcIssuerConfig }
     | { kind: 'skip-mpc'; issuerContract: IssuerContractLocation }
     | { kind: 'dev' };
+  /**
+   * The chips' birth certificates (protocol.md §5.8): required (a card the
+   * bank did not make is refused before it is funded), or skipped for demos
+   * with cards that were never born (NEARCASH_SKIP_BIRTH, only without MPC).
+   */
+  birthCertificates: 'required' | 'skipped';
   /** How customers pay. The 1Click settings are kept even when payments are simulated (the live check uses them). */
   payments: { kind: 'simulated' | '1click'; oneClick: OneClickSettings };
   /** Where the value of each banknote comes from. */
@@ -147,6 +156,15 @@ export function issuanceConfigFromEnvironment(env: NodeJS.ProcessEnv): IssuanceC
     };
   }
 
+  // The issuer contract checks every chip's birth itself: skipping it is only
+  // possible when the issuance server signs the certificates (demos, development).
+  const skipBirth = yesNo('NEARCASH_SKIP_BIRTH');
+  if (skipBirth && certificates.kind === 'mpc') {
+    throw new ConfigurationError(
+      'NEARCASH_SKIP_BIRTH needs NEARCASH_SKIP_MPC=true (or NEARCASH_SIGNER=dev): the issuer contract always checks the birth certificate',
+    );
+  }
+
   const reserveKind = oneOf('NEARCASH_RESERVE', ['simulated', 'far'], 'simulated');
   const reserve: IssuanceConfig['reserve'] =
     reserveKind === 'far'
@@ -186,6 +204,7 @@ export function issuanceConfigFromEnvironment(env: NodeJS.ProcessEnv): IssuanceC
 
   return {
     certificates,
+    birthCertificates: skipBirth ? 'skipped' : 'required',
     payments: {
       kind: paymentsKind,
       oneClick: {

@@ -7,14 +7,16 @@
  *   1. ATM → issuance   createSale(amount)        the server makes a 1Click quote paying the bank's reserve
  *   2. user pays the deposit address shown on the display
  *   3. ATM → issuance   waitForPayment            the server asks 1Click, never the ATM
- *   4. ATM              prepareCard               a blank card creates its keys
- *   5. ATM → issuance   issue(sale, card keys)    the server funds the card inside FAR, MPC signs its certificate
+ *   4. ATM              prepareCard               a blank card creates its keys (signed by its chip key)
+ *   5. ATM → issuance   issue(sale, keys, birth)  the server checks the chip's birth, funds the card inside FAR,
+ *                                                 MPC signs its certificate
  *   6. ATM              writeCertificate + PIN    the banknote drops
  *
  * The ATM holds no key that creates value. A stolen cassette is worthless
  * plastic; a tampered ATM cannot fake a 1Click payment, and each payment
  * buys exactly one card.
  */
+import type { BirthProof } from './birth.ts';
 import { bytesToHex, hexToBytes } from './bytes.ts';
 import type { NearCashCard } from './card.ts';
 import type { Certificate } from './certificate.ts';
@@ -78,8 +80,12 @@ export type CreateSaleRequest = { amount: bigint; originAsset: string; refundTo?
 export interface IssuanceApi {
   createSale(request: CreateSaleRequest): Promise<Sale>;
   getSale(saleId: string): Promise<Sale>;
-  /** Funds the card and returns its MPC-signed certificate (bytes). Only for a PAID sale. */
-  issue(saleId: string, keys: CardPublicKeys): Promise<Uint8Array>;
+  /**
+   * Funds the card and returns its MPC-signed certificate (bytes). Only for
+   * a PAID sale, and (unless the server skips birth certificates for a demo)
+   * only for a card born in the bank's factory.
+   */
+  issue(saleId: string, keys: CardPublicKeys, birth?: BirthProof): Promise<Uint8Array>;
 }
 
 /** The issuance server's HTTP API (apps/issuance), authenticated with the ATM's token. */
@@ -138,13 +144,22 @@ export class HttpIssuanceClient implements IssuanceApi {
     return this.request<Sale>('POST', `/dev/sales/${encodeURIComponent(saleId)}/pay`);
   }
 
-  async issue(saleId: string, keys: CardPublicKeys): Promise<Uint8Array> {
+  async issue(saleId: string, keys: CardPublicKeys, birth?: BirthProof): Promise<Uint8Array> {
     const { certificate } = await this.request<{ certificate: string }>(
       'POST',
       `/sales/${encodeURIComponent(saleId)}/issue`,
       {
         authPublicKey: bytesToHex(compressPublicKey(keys.authPublicKey)),
         fundsPublicKey: bytesToHex(compressPublicKey(keys.fundsPublicKey)),
+        ...(birth
+          ? {
+              birth: {
+                chipPublicKey: bytesToHex(birth.chipPublicKey),
+                birthSignature: bytesToHex(birth.birthSignature),
+                keysSignature: bytesToHex(birth.keysSignature),
+              },
+            }
+          : {}),
       },
     );
     return hexToBytes(certificate);
@@ -208,6 +223,6 @@ export async function dispenseBanknote(
   trustedIssuers: readonly TrustedIssuer[],
 ): Promise<Certificate> {
   const prepared = await prepareCard(card);
-  const certificate = await issuance.issue(saleId, prepared.keys);
+  const certificate = await issuance.issue(saleId, prepared.keys, prepared.birth);
   return writeCertificate(card, certificate, pin, trustedIssuers);
 }
