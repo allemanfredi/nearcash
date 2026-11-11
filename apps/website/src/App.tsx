@@ -1,5 +1,8 @@
 import { Advice } from './sections/Advice.tsx';
 import { Atm } from './sections/Atm.tsx';
+import { Built } from './sections/Built.tsx';
+import { BuiltOnNear } from './sections/BuiltOnNear.tsx';
+import { Business } from './sections/Business.tsx';
 import { Closing } from './sections/Closing.tsx';
 import { Faq } from './sections/Faq.tsx';
 import { Hero } from './sections/Hero.tsx';
@@ -15,7 +18,8 @@ import { Trust } from './sections/Trust.tsx';
 /**
  * One page, told in order: the problem (servers are off switches), the
  * evidence, what central banks advise, a demo, then how NearCash works,
- * why it holds, and whom it trusts.
+ * why it holds, and whom it trusts. Then, for whoever has to judge or
+ * back it: what NEAR gives it, what exists today, and the business.
  */
 export function App() {
   return (
@@ -35,6 +39,9 @@ export function App() {
         <Security />
         <Trust />
         <Atm />
+        <BuiltOnNear />
+        <Built />
+        <Business />
         <Faq />
       </main>
       <Closing />

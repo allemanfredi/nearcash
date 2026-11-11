@@ -7,6 +7,10 @@ const QUESTIONS = [
     a: 'They keep working. Checking a banknote and passing it on need no server, ours included. Only buying a new banknote and redeeming one need the network, and those can wait until it is back.',
   },
   {
+    q: 'And if NearCash’s own server is hacked?',
+    a: 'The attacker gets less than you would think. The server holds no issuer key: certificates are signed by the NEAR MPC network, only for what the issuer contract allows. They can’t make chips, because every chip carries a birth signature from an offline key. They can’t go above the set denominations or the daily cap, and everything they do shows in the contract’s public counters, after which the server is cut off in one call. What they could do is have genuine blank chips certified without paying for them, as many as they can lay hands on: bounded and visible. Closing that last gap is the first item on our roadmap.',
+  },
+  {
     q: 'Do I need internet to accept a banknote?',
     a: 'No. Your phone checks the certificate against the issuer key built into the NearCash app, then asks the chip to sign a fresh random challenge. Everything happens over NFC, between the phone and the banknote.',
   },
@@ -40,7 +44,7 @@ const QUESTIONS = [
   },
   {
     q: 'Is it live?',
-    a: 'It is a hackathon prototype. The banknote’s chip software, the phone app and the issuance server run end to end, and certificates are signed by the real NEAR MPC network on testnet. Real payments into Confidential Intents come next.',
+    a: 'It is a working prototype, built for a hackathon. The chip software, the ATM, the phone app and the issuance server run end to end: you pay in USDC from any chain through NEAR Intents, the money lands in the reserve inside Confidential Intents, and the banknote is funded from it. Certificates are signed by the real NEAR MPC network, on testnet. Mainnet is next.',
   },
 ];
 

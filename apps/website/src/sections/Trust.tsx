@@ -5,7 +5,7 @@ const PHASES = [
   {
     name: 'Creation',
     who: 'Trusted, and bounded',
-    text: 'The issuance server checks the payment and funds the banknote before the NEAR MPC network signs its certificate. A contract limits what any issuance server can do.',
+    text: 'The issuance server checks the payment, checks that the chip was born at the issuer’s factory, and funds the banknote before the NEAR MPC network signs its certificate. A public contract limits what any issuance server can do, hacked or not.',
   },
   {
     name: 'Circulation',

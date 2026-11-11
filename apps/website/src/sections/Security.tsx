@@ -5,8 +5,8 @@ import { Section } from '../components/Section.tsx';
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: 'chip',
-    title: 'Keys born in the chip',
-    text: 'Both key pairs are generated in the banknote’s chip and never leave it. Nobody ever sees them, not even the ATM that sold it.',
+    title: 'Keys born in a chip the issuer made',
+    text: 'Both key pairs are generated in the banknote’s chip and never leave it: nobody ever sees them, not even the ATM that sold it. The chip itself carries a birth certificate signed by an offline production key, so keys made anywhere else are refused.',
   },
   {
     icon: 'once',
@@ -26,7 +26,7 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   {
     icon: 'contract',
     title: 'Limits written in a contract',
-    text: 'The issuer contract signs only set denominations, up to a daily cap. It keeps public counters and can cut off an issuance server instantly.',
+    text: 'The issuer contract signs only for chips the issuer made, each once, in set denominations, up to a daily cap. It keeps public counters and can cut off an issuance server instantly.',
   },
   {
     icon: 'eyeOff',

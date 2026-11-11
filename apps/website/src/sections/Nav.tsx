@@ -3,7 +3,8 @@ const LINKS = [
   { href: '#problem', label: 'The problem' },
   { href: '#off-switch', label: 'Demo' },
   { href: '#how', label: 'How it works' },
-  { href: '#trust', label: 'Trust' },
+  { href: '#near', label: 'Built on NEAR' },
+  { href: '#business', label: 'Business' },
   { href: '#faq', label: 'FAQ' },
 ];
 

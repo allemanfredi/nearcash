@@ -9,13 +9,13 @@ const FILTERS: Filter[] = ['all', 'hacked', 'patched', 'outage', 'ordered'];
 
 /**
  * The evidence: four sourced numbers for the scale of the problem
- * (content/figures.ts), then a filterable timeline of real, sourced
- * incidents (content/incidents.ts).
+ * (content/figures.ts), then a filterable ledger of real, sourced
+ * incidents (content/incidents.ts), one line each, newest first. The
+ * account behind a line opens on tap, so the whole list fits one screen.
  */
 export function Incidents() {
   const [filter, setFilter] = useState<Filter>('all');
   const shown = INCIDENTS.filter((incident) => filter === 'all' || incident.kind === filter);
-  const years = [...new Set(shown.map((incident) => incident.year))];
 
   return (
     <Section
@@ -58,30 +58,27 @@ export function Incidents() {
         })}
       </div>
 
-      {years.map((year) => (
-        <div key={year} className="timeline">
-          <h3 className="timeline__year">{year}</h3>
-          <ol className="timeline__list">
-            {shown
-              .filter((incident) => incident.year === year)
-              .map((incident) => (
-                <li key={incident.title} className="incident">
-                  <div className="incident__meta">
-                    <time>{incident.date}</time>
-                    <span className={`tag tag--${incident.kind}`}>{KIND_LABELS[incident.kind]}</span>
-                  </div>
-                  <h4>{incident.title}</h4>
-                  <p>{incident.text}</p>
-                  <p className="incident__sources">
-                    {incident.sources.map((source) => (
-                      <SourceLink key={source.url} source={source} />
-                    ))}
-                  </p>
-                </li>
-              ))}
-          </ol>
-        </div>
-      ))}
+      <ol className="ledger" aria-label="Incidents, newest first">
+        {shown.map((incident) => (
+          <li key={incident.title}>
+            <details className="entry">
+              <summary>
+                <time>{incident.date}</time>
+                <span className={`tag tag--${incident.kind}`}>{KIND_LABELS[incident.kind]}</span>
+                <span className="entry__title">{incident.title}</span>
+              </summary>
+              <div className="entry__body">
+                <p>{incident.text}</p>
+                <p className="entry__sources">
+                  {incident.sources.map((source) => (
+                    <SourceLink key={source.url} source={source} />
+                  ))}
+                </p>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ol>
     </Section>
   );
 }

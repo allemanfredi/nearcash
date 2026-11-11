@@ -27,7 +27,6 @@ export function Closing() {
             <img src="./favicon.svg" alt="" width={20} height={20} />
             NearCash
           </span>
-          <p>A hackathon prototype by Nektar Labs.</p>
           <p className="footer__note">This site makes no requests to third parties: no trackers, no external fonts.</p>
         </div>
       </footer>
