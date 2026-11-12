@@ -1,3 +1,5 @@
+<img src="apps/website/public/favicon.svg" alt="NearCash logo: two banknotes, the top one with the contactless sign" width="96" height="96">
+
 # NearCash
 
 Today almost all money, crypto included, is reached through someone's
@@ -117,7 +119,7 @@ passkey of the app (iCloud Keychain, Face ID), from which the app withdraws it.
 
 **The website** (`apps/website`) explains the problem NearCash solves: money
 held through apps stops when their servers are hacked, patched or switched
-off.
+off. It then shows what runs today, what NEAR gives it, and the business.
 
 Shared code lives in `packages/` (the card protocol, certificates, the MPC
 signer, the sale flow, what the kiosk and the ATM server share). The protocol

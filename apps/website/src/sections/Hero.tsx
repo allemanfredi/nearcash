@@ -17,7 +17,7 @@ export function Hero() {
             <span className="pill__dot" aria-hidden="true" />
             {/* Each phrase stays on one line: on narrow phones the pill wraps at the dot. */}
             <span className="pill__text">
-              <span>Backed by NEAR Intents</span> · <span>Certified by NEAR MPC</span>
+              <span>Backed by NEAR Intents</span> · <span>Certified by NEAR Chain Signatures</span>
             </span>
           </p>
           <h1 id="hero-title" className="hero__title">
@@ -25,10 +25,13 @@ export function Hero() {
             <br />
             <em>when everything else stops.</em>
           </h1>
+          {/* The hook: the central banks' advice (sourced in the Advice section, linked), then the twist. */}
           <p className="hero__lead">
-            Servers get hacked, patched in a panic, ordered offline. Each time, people who hold crypto
-            through apps find out they can’t spend it. NearCash puts the money in your hand: a real banknote,
-            with a chip. Any phone checks it offline, and you pass it on like cash.
+            Servers get hacked, patched in a panic, ordered offline, and the money in your apps stops with
+            them. That’s why Europe’s central banks now tell households to{' '}
+            <a href="#advice">keep some cash at home</a>. But you can’t keep crypto in a drawer.{' '}
+            <strong>Until now.</strong> NearCash is a real banknote with a chip: any phone checks it offline,
+            and you pass it on like cash.
           </p>
           <div className="hero__actions">
             <a className="button button--primary" href="#off-switch">

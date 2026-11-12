@@ -408,6 +408,19 @@ code {
   text-wrap: pretty;
 }
 
+/* The link to the central banks' advice, and the "Until now." turn. */
+.hero__lead a {
+  color: var(--ink);
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.hero__lead strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .hero__actions {
   display: flex;
   flex-wrap: wrap;

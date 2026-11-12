@@ -103,8 +103,8 @@ plate, in its colour, with the settings (X2D 0.4 mm nozzle, 0.24 mm layers,
 | 11. Green: the hopper (it hooks under the floor's rails) | 36 min | 18 g |
 | 12. Black: the gate (it snaps onto the hopper's pillars) | 5 min | 2 g |
 | 13. Green: the reader's holder (the turret), its hub's middle open so the horn pocket's ceiling prints cleanly | 23 min | 9 g |
-| 14. Green and black: the face, with black lips round the smile and the NearCash name and logo flush in black under it (the AMS swaps the colours on nozzle 1 for its first three layers) | 32 min | 15 g |
-| **The ATM** (plates 3 and 5 to 14) | **6 h 41 min** | **215 g** |
+| 14. Green and black: the face, with black lips round the smile and the NearCash name and logo flush in black under it (the AMS swaps the colours on nozzle 1 for its first three layers) | 33 min | 15 g |
+| **The ATM** (plates 3 and 5 to 14) | **6 h 43 min** | **215 g** |
 | 15. Test, white: the dummy reader, base and lid (only until the ACR39U arrives, see below) | 52 min | 35 g |
 
 Add a few minutes per plate for the printer's own warm-up and calibration,

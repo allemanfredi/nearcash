@@ -1,10 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- NearCash green (#00EC97), a card outline and NFC waves in dark ink. -->
+  <!-- NearCash's mark, "the wad": two banknotes fanned out on NearCash green
+       (#00EC97), in dark ink (#032619) and paper (#F5F2EA). The note on top
+       carries the contactless sign in its medallion, where a portrait would be.
+       The same drawing is apps/kiosk/public/icon.svg, the iOS app icon
+       (scripts/make-app-icon.swift) and, in ink only, the ATM's face
+       (brand_logo_2d in hardware/atm/nearcash-atm.scad). -->
   <rect width="64" height="64" rx="14" fill="#00ec97"/>
-  <rect x="11" y="18.5" width="42" height="27" rx="5" fill="none" stroke="#032619" stroke-width="3"/>
-  <g fill="none" stroke="#032619" stroke-width="2.6" stroke-linecap="round">
-    <path d="M28 27.5a6 6 0 0 1 0 9"/>
-    <path d="M32.5 24.5a10.5 10.5 0 0 1 0 15"/>
-    <path d="M37 21.8a14.5 14.5 0 0 1 0 20.4"/>
+  <!-- the note underneath: solid ink, turned 12° anticlockwise -->
+  <rect x="9" y="15" width="46" height="26" rx="2.6" fill="#032619" transform="rotate(-12 32 30)"/>
+  <!-- the note on top, turned 6° clockwise -->
+  <g transform="rotate(6 32 38)">
+    <rect x="9" y="25" width="46" height="26" rx="2.6" fill="#f5f2ea" stroke="#032619" stroke-width="2.6"/>
+    <circle cx="32" cy="38" r="8.6" fill="#00ec97" stroke="#032619" stroke-width="2.2"/>
+    <!-- the contactless sign: three arcs of radius 3, 6 and 9, centred on
+         (26.6, 38), each spanning ±45° -->
+    <g fill="none" stroke="#032619" stroke-width="2" stroke-linecap="round">
+      <path d="M28.72 35.88A3 3 0 0 1 28.72 40.12"/>
+      <path d="M30.84 33.76A6 6 0 0 1 30.84 42.24"/>
+      <path d="M32.96 31.64A9 9 0 0 1 32.96 44.36"/>
+    </g>
   </g>
 </svg>

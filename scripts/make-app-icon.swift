@@ -1,15 +1,32 @@
-// Renders the NearCash iOS app icon: a 1024×1024 opaque PNG.
+// Renders NearCash's mark (apps/website/public/favicon.svg) as an opaque,
+// square PNG: the iOS wallet's app icon and the kiosk's Home Screen icon.
 //
-//   swift scripts/make-app-icon.swift ios/NearCashWallet/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+//   swift scripts/make-app-icon.swift ios/NearCashWallet/Assets.xcassets/AppIcon.appiconset/AppIcon.png 1024
+//   swift scripts/make-app-icon.swift apps/kiosk/public/apple-touch-icon.png 180
 //
-// Full-bleed artwork: iOS applies the rounded mask itself.
+// Full-bleed artwork: iOS rounds the corners itself. The SVG's own rounded
+// corners are drawn over a canvas already filled with the same green, so the
+// PNG comes out a full green square, with no transparency (Apple requires it).
+// macOS reads SVG files natively (NSImage, macOS 14 and later).
 import AppKit
 
-let outputPath = CommandLine.arguments.dropFirst().first ?? "AppIcon.png"
-let pixels = 1024
+let arguments = Array(CommandLine.arguments.dropFirst())
+guard arguments.count == 2, let pixels = Int(arguments[1]), pixels > 0 else {
+    fatalError("usage: swift scripts/make-app-icon.swift <output.png> <pixels>")
+}
+let outputPath = arguments[0]
+
+// The one drawing of the mark, found from this script's own place in the repo.
+let markURL = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent()                       // scripts/
+    .appendingPathComponent("../apps/website/public/favicon.svg")
+    .standardizedFileURL
+guard let mark = NSImage(contentsOf: markURL) else {
+    fatalError("cannot read \(markURL.path) (SVG needs macOS 14 or later)")
+}
 
 // RGBX: an opaque 8-bit bitmap CoreGraphics can draw into. The PNG is saved
-// without an alpha channel, as Apple requires for app icons.
+// without an alpha channel.
 guard let context = CGContext(
     data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,
     space: CGColorSpace(name: CGColorSpace.sRGB)!,
@@ -21,30 +38,12 @@ NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false
 
 let canvas = NSRect(x: 0, y: 0, width: pixels, height: pixels)
 
-// Background: the app's banknote green, light top-left to dark bottom-right.
-NSGradient(
-    starting: NSColor(red: 0.16, green: 0.47, blue: 0.36, alpha: 1),
-    ending: NSColor(red: 0.05, green: 0.24, blue: 0.18, alpha: 1)
-)!.draw(in: canvas, angle: -45)
+// NearCash green (#00EC97), the mark's background, under its rounded corners.
+NSColor(srgbRed: 0x00 / 255.0, green: 0xEC / 255.0, blue: 0x97 / 255.0, alpha: 1).setFill()
+canvas.fill()
 
-// A banknote card outline, ISO ID-1 proportions (85.60 × 53.98).
-let cardWidth = 660.0
-let cardHeight = cardWidth / (85.60 / 53.98)
-let card = NSRect(x: (1024 - cardWidth) / 2, y: (1024 - cardHeight) / 2, width: cardWidth, height: cardHeight)
-let outline = NSBezierPath(roundedRect: card, xRadius: 64, yRadius: 64)
-outline.lineWidth = 30
-NSColor.white.setStroke()
-outline.stroke()
-
-// NFC waves, centred on the card.
-let configuration = NSImage.SymbolConfiguration(pointSize: 230, weight: .bold)
-    .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
-if let waves = NSImage(systemSymbolName: "wave.3.right", accessibilityDescription: nil)?
-    .withSymbolConfiguration(configuration) {
-    let size = waves.size
-    waves.draw(in: NSRect(x: card.midX - size.width / 2, y: card.midY - size.height / 2,
-                          width: size.width, height: size.height))
-}
+// The mark, scaled from its 64-unit square to the whole canvas.
+mark.draw(in: canvas)
 
 NSGraphicsContext.restoreGraphicsState()
 
@@ -53,4 +52,4 @@ guard let image = context.makeImage(),
     fatalError("cannot encode PNG")
 }
 try png.write(to: URL(fileURLWithPath: outputPath))
-print("wrote \(outputPath)")
+print("wrote \(outputPath) (\(pixels) × \(pixels))")

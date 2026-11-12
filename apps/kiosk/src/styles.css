@@ -127,11 +127,11 @@ button:disabled {
   letter-spacing: -0.01em;
 }
 
+/* NearCash's mark (public/icon.svg), drawn with its own rounded green square. */
 .brand__mark {
+  display: block;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  background: var(--green);
 }
 
 .bar__button {

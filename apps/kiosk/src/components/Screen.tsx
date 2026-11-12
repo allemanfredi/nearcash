@@ -31,7 +31,7 @@ export function Screen({
           </button>
         ) : (
           <span className="brand">
-            <span className="brand__mark" aria-hidden="true" />
+            <img className="brand__mark" src="./icon.svg" alt="" width={22} height={22} />
             NearCash
           </span>
         )}

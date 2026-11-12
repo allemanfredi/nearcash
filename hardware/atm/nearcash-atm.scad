@@ -972,17 +972,57 @@ module lips_2d() {
 }
 
 // ---- the NearCash name and logo, in black, flush in the face's chin
-// The logo is the website's mark (apps/website/public/favicon.svg, drawn on a 64-unit
-// square): a card outline and three NFC waves, in dark ink on NearCash green. Only the
-// ink is drawn here, the face being the green. At 25 mm for the 64 units its thinnest
-// line is 1 mm and its narrowest gap 0.55 mm: what a 0.4 mm nozzle still prints.
-brand_unit = 25 / 64;
+// The logo is NearCash's mark, "the wad" (apps/website/public/favicon.svg, drawn on a
+// 64-unit square): two banknotes fanned out, the one on top with the contactless sign in
+// its medallion. Only the ink is drawn here, the face being the green: the note
+// underneath is solid black, the note on top and its medallion are outlines (their
+// paper is the face's green).
+// The chin leaves the logo 16.5 mm of height, about 0.37 mm a unit, where the SVG's three
+// waves, 1 unit apart, would print as one blot. The face has two waves instead, apart
+// enough to print: its thinnest line is 0.8 mm and its narrowest gap 0.55 mm or more,
+// what a 0.4 mm nozzle still prints (both checked below).
 brand_font = "Liberation Sans:style=Bold";   // it comes with OpenSCAD: the same on every computer
 brand_text = "NearCash";
 brand_text_size = 9;
 brand_text_metrics = textmetrics(brand_text, size = brand_text_size, font = brand_font);
-brand_logo_w = (42 + 3) * brand_unit;        // the card, 42 units, and its 3-unit line
-brand_logo_h = (27 + 3) * brand_unit;
+
+// The logo in the SVG's units and coordinates (x right, y DOWN).
+logo_note_size = [46, 26];                    // both notes
+logo_note_r = 2.6;                            // their corners
+logo_under_at = [9, 15];                      // the note underneath: its corner,
+logo_under_angle = -12;                       // turned 12° anticlockwise
+logo_under_about = [32, 30];                  // about this point
+logo_top_at = [9, 25];                        // the note on top: its corner,
+logo_top_angle = 6;                           // turned 6° clockwise
+logo_top_about = [32, 38];                    // about its medallion's centre
+logo_top_line = 2.6;                          // its outline
+logo_medallion = [32, 38];
+logo_medallion_r = 8.6;
+logo_medallion_line = 2.2;
+logo_waves_at = [27.4, 38];                   // the waves' common centre (the SVG: 26.6)
+logo_waves_r = [2.8, 6.6];                    // (the SVG: 3, 6 and 9)
+logo_waves_line = 2.2;                        // (the SVG: 2)
+
+// Where a point lands when turned by `angle` degrees about `about`, as the SVG's
+// rotate(angle about) does: the same matrix, in the same coordinates.
+function turned(p, angle, about) = about + [[cos(angle), -sin(angle)], [sin(angle), cos(angle)]] * (p - about);
+// The four corners of a rectangle from its corner `at`, grown by `grow` on every side.
+function rect_corners(at, size, grow) = [for (dx = [-grow, size[0] + grow], dy = [-grow, size[1] + grow]) at + [dx, dy]];
+// The logo's bounding box, in units: the turned corners of both notes (the top one to
+// the outer edge of its outline). A hair more than the ink, whose corners are round.
+logo_corners = concat(
+    [for (p = rect_corners(logo_under_at, logo_note_size, 0)) turned(p, logo_under_angle, logo_under_about)],
+    [for (p = rect_corners(logo_top_at, logo_note_size, logo_top_line / 2)) turned(p, logo_top_angle, logo_top_about)]
+);
+logo_min = [min([for (p = logo_corners) p[0]]), min([for (p = logo_corners) p[1]])];
+logo_max = [max([for (p = logo_corners) p[0]]), max([for (p = logo_corners) p[1]])];
+logo_centre = (logo_min + logo_max) / 2;
+
+brand_logo_h = 16.5;                                         // mm, what the chin leaves it
+brand_unit = brand_logo_h / (logo_max[1] - logo_min[1]);     // mm a unit
+brand_logo_w = (logo_max[0] - logo_min[0]) * brand_unit;
+assert(logo_waves_line * brand_unit >= 0.8, "the logo's waves are too thin to print");
+assert((logo_waves_r[1] - logo_waves_r[0] - logo_waves_line) * brand_unit >= 0.55, "the logo's waves are too close to print apart");
 brand_gap = 3.5;                             // between the logo and the name
 brand_w = brand_logo_w + brand_gap + brand_text_metrics.size[0];
 brand_h = max(brand_logo_h, brand_text_metrics.size[1]);
@@ -993,33 +1033,48 @@ brand_z = (chin_z0 + grin_bottom - lips_w) / 2;
 assert(brand_z + brand_h / 2 + 1 <= grin_bottom - lips_w, "the name and logo reach the lips");
 assert(brand_w / 2 + 2 <= face_peg_x - 11 / 2, "the name and logo reach the face's tabs");
 
-// One NFC wave of the logo, in its units: an arc bulging right, from the SVG's path
-// "M end_x … a r r 0 0 1 0 2·half_chord" (both ends at end_x, the card's middle height),
-// a line of width `line` with round ends.
-module nfc_wave_2d(end_x, r, half_chord, line) {
-    centre_x = end_x - sqrt(r * r - half_chord * half_chord);
-    angle = asin(half_chord / r);
-    translate([centre_x, 0]) {
-        intersection() {
-            difference() { circle(r = r + line / 2); circle(r = r - line / 2); }
-            polygon([[0, 0], [3 * r * cos(angle), -3 * r * sin(angle)], [3 * r * cos(angle), 3 * r * sin(angle)]]);
-        }
-        for (s = [-1, 1]) translate([r * cos(angle), s * half_chord]) circle(d = line);
-    }
+// A rectangle with round corners of radius r, from its corner `at` (the SVG's <rect>).
+module rounded_rect_2d(at, size, r) {
+    translate(at + [r, r]) offset(r = r) square(size - [2 * r, 2 * r]);
 }
 
-// The logo's ink, centred on the card (the SVG's point 32, 32).
+// Its children turned by `angle` degrees about `about` (the SVG's rotate(angle about)).
+module turn(angle, about) {
+    translate(about) rotate(angle) translate(-about) children();
+}
+
+// One contactless wave: an arc of radius r about the origin, from -45° to +45° (bulging
+// towards +x), a line of width `line` with round ends.
+module contactless_wave_2d(r, line) {
+    intersection() {
+        difference() { circle(r = r + line / 2); circle(r = r - line / 2); }
+        polygon([[0, 0], [2 * r, -2 * r], [2 * r, 2 * r]]);   // the 90° wedge from -45° to +45°
+    }
+    for (s = [-1, 1]) translate([r, s * r] / sqrt(2)) circle(d = line);
+}
+
+// The logo's ink, centred on its bounding box. It is drawn in the SVG's units and
+// coordinates, then mirrored, since the SVG's y axis points down and the face's up.
 module brand_logo_2d() {
-    scale(brand_unit) {
-        // the card: 42 × 27 units with corners of 5, a 3-unit line on its outline
+    scale(brand_unit) mirror([0, 1]) translate(-logo_centre) {
+        // the two notes, less the top note's paper inside its outline (the face's green)
         difference() {
-            offset(r = 5 + 3 / 2) square([42 - 2 * 5, 27 - 2 * 5], center = true);
-            offset(r = 5 - 3 / 2) square([42 - 2 * 5, 27 - 2 * 5], center = true);
+            union() {
+                turn(logo_under_angle, logo_under_about) rounded_rect_2d(logo_under_at, logo_note_size, logo_note_r);
+                turn(logo_top_angle, logo_top_about)
+                    offset(r = logo_top_line / 2) rounded_rect_2d(logo_top_at, logo_note_size, logo_note_r);
+            }
+            turn(logo_top_angle, logo_top_about)
+                offset(r = -logo_top_line / 2) rounded_rect_2d(logo_top_at, logo_note_size, logo_note_r);
         }
-        // the three waves (the SVG's ends at x = 28, 32.5 and 37: here 32 less), 2.6-unit lines
-        nfc_wave_2d(28 - 32, 6, 9 / 2, 2.6);
-        nfc_wave_2d(32.5 - 32, 10.5, 15 / 2, 2.6);
-        nfc_wave_2d(37 - 32, 14.5, 20.4 / 2, 2.6);
+        // the medallion's ring and the waves in it, turned with the top note
+        turn(logo_top_angle, logo_top_about) {
+            translate(logo_medallion) difference() {
+                circle(r = logo_medallion_r + logo_medallion_line / 2);
+                circle(r = logo_medallion_r - logo_medallion_line / 2);
+            }
+            for (r = logo_waves_r) translate(logo_waves_at) contactless_wave_2d(r, logo_waves_line);
+        }
     }
 }
 
