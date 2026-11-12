@@ -305,13 +305,16 @@ info "website → apps/website/dist"
 
 step "Copying the ATM to the Pi (~/$REMOTE_DIR)"
 # The workspace without what the Pi doesn't run. Never copied: secrets
-# (.env*, the issuance server's sales), the iOS app, the applet, the contract.
-# The builds (apps/atm/dist, apps/kiosk/dist) are copied: the Pi builds nothing.
+# (.env*, the issuance server's sales), the iOS app, the contract.
+# The builds (apps/atm/dist, apps/kiosk/dist) are copied: the ATM builds nothing.
+# The applet's sources are copied, for pnpm test:card on the Pi (which builds
+# the .cap there), but not its build nor the Java Card SDKs it downloads.
 # Excluded paths are also kept on the Pi by --delete: its .env.atm, its
 # certificate (.atm-tls) and the session's scripts (.atm-run) survive a redeploy.
 quietly rsync -az --delete -e "$RSYNC_SSH" \
   --exclude=node_modules/ --exclude=.git/ --exclude=.atm-demo/ --exclude=/.atm-tls/ --exclude=/.atm-run/ \
-  --exclude=/ios/ --exclude=/applet/ --exclude=/contracts/ --exclude=/apps/website/dist/ \
+  --exclude=/ios/ --exclude=/contracts/ --exclude=/apps/website/dist/ \
+  --exclude=/applet/build/ --exclude=/applet/.gradle/ --exclude=/applet/.javacard/sdks/ \
   --exclude='.env*' --exclude='issuance-sales.json*' --exclude='issuance-refunds.json*' --exclude='*.secret.json' --exclude=.DS_Store \
   "$ROOT/" "$TARGET:$REMOTE_DIR/"
 info "code copied"
