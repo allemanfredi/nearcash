@@ -301,7 +301,9 @@ GlobalPlatformPro (the `gp` tool, which uses the GlobalPlatform keys of §2):
    the bank's offline production station (`--new-key <file>` makes the
    production key once; `--dev` uses the public DEV production key, tests
    only).
-4. Lock the card's code (TODO, §10.1).
+4. Lock the card's code: two options under evaluation, random keys thrown
+   away or keys kept by the bank so spent banknotes can be recycled (§10.1).
+   Today it is skipped.
 5. Put it in the ATM's cassette. The ATM refuses a blank card without a
    birth certificate (out of service) before anyone pays.
 
@@ -451,8 +453,8 @@ redeem yet.
   - The wallet's 1Click partner key ships inside the app, so anyone can read
     it and use the app's 1Click quota. It moves no funds: every movement
     needs the signature of the account it spends.
-- Cards keep the default GlobalPlatform keys: what that allows, and the TODO
-  to lock them, are in §10.1.
+- Cards keep the default GlobalPlatform keys: what that allows, and the two
+  ways of locking them under evaluation, are in §10.1.
 - Refunds without a refund address go back to the address that paid. Paid
   from an exchange, that address is the exchange's, so the user must give
   their own. Refunds smaller than the network fee of sending them back are
@@ -494,12 +496,40 @@ applet or load another one. What that allows, case by case:
   and spends the card in person: a double spend. Only blocking code loading
   stops it.
 
-**TODO: lock the card's code.** After installing the applet, operators replace
-the keys with random ones that are thrown away (`gp --lock`). From then on
-nobody, not even the bank, can load or delete code: this closes the second
-applet and the reset. Spent cards can then no longer be recycled by
-reinstalling the applet: add a RESET command (SPENT → EMPTY, PIN required,
-sent only after FAR confirms the redemption) to reuse them.
+**Under evaluation: who holds the card's keys once the applet is in.** While
+preparing the card (§9, Card preparation, step 4), operators replace the
+default keys. Both options below close the second applet and the reset:
+without the keys nobody can load or delete code. They differ in who can still
+open the card, and so in how spent banknotes are recycled. Either way a receiver cannot check that a card is
+locked (a card cannot prove its own state, as above): they trust the bank's
+card preparation.
+
+- **A. Random keys, thrown away** (`gp --lock`). Nobody, not even the bank,
+  can open the card again: there is no key to steal.
+  - Recycling needs a RESET command in the applet: `SPENT` → `EMPTY`, PIN
+    required, sent only after FAR confirms the redemption. It must also delete
+    C, so the card goes through a new birth (§5.8): the issuer contract allows
+    one certificate per chip, and a new C is a new chip to it.
+  - The applet can never be updated: a bug stays on the cards already made
+    until they are withdrawn. The applet must be final before cards are locked.
+- **B. Keys kept by the bank, safely.** The bank can still open its own cards,
+  nobody else can.
+  - Recycling needs no new command: a spent banknote that comes back to the
+    bank, once FAR confirms its redemption, is wiped and gets the applet again
+    and a new birth (§9, Card preparation), with the latest applet: bugs can
+    be fixed on recycled cards. Step 1 there then discards a card whose keys
+    are neither the default ones nor the bank's.
+  - "Safely" means: one key per card, derived from a master key and the card's
+    serial number, so a key read out of one card opens no other; the master
+    key only on the bank's offline station (the one with the production key,
+    §5.8) or in a hardware security module, never on the issuance server, an
+    ATM or any online machine; possibly split among several people, so no one
+    alone can use it.
+  - The risk: the master key becomes as valuable as the production key, and
+    worse to lose. Whoever steals it can open any banknote they get hold of
+    and try the second applet. Unlike the production key (§10), it cannot be
+    replaced in the contract: the cards already in circulation stay exposed
+    until they come back to the bank.
 
 ## 11. Issuer key: NEAR MPC (chain signatures)
 
