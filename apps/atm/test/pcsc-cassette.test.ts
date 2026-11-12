@@ -51,6 +51,8 @@ const status = (raw: number) => ({
 class FakeReader extends EventEmitter {
   card: FakeCard | undefined;
   connects = 0;
+  /** As PC/SC does for a MUTE card: a connection powers it again, and then it answers (reported PRESENT). */
+  wakesOnConnect = false;
   constructor(private readonly readerName: string) {
     super();
   }
@@ -60,6 +62,10 @@ class FakeReader extends EventEmitter {
   async connect(): Promise<FakeCard> {
     if (!this.card) throw new Error('no card');
     this.connects += 1;
+    if (this.wakesOnConnect) {
+      this.wakesOnConnect = false;
+      setTimeout(() => this.emit('change', status(PRESENT)), 0);
+    }
     return this.card;
   }
   place(card: FakeCard, flags = PRESENT): void {
@@ -196,6 +202,71 @@ describe('PC/SC cassette', () => {
     expect(await named.cassette.unavailableReason()).toMatch(/no blank card at the NFC reader \(ACS ACR122U/);
     acr.place(new FakeCard());
     expect(await named.cassette.unavailableReason()).toBeNull();
+  });
+
+  it('with the servos: an empty reader is in service, and the pusher loads the card once it is asked for', async () => {
+    const { readers, plug } = setUp();
+    const reader = plug('ACS ACR39U ICC Reader');
+    let loads = 0;
+    const cassette = new PcscCassette(readers, undefined, true, async () => {
+      loads += 1;
+      reader.place(new FakeCard()); // the card the pusher slid in
+    });
+    expect(await cassette.unavailableReason()).toBeNull();
+    expect(loads).toBe(0); // nothing moves before the sale is paid
+    const card = await cassette.nextBlankCard();
+    expect(loads).toBe(1);
+    expect((await card.info()).state).toBe(CardState.EMPTY);
+  });
+
+  it('with the servos: a blank card already in the reader is used, nothing is loaded on top of it', async () => {
+    const { readers, plug } = setUp();
+    const reader = plug('reader');
+    reader.place(new FakeCard());
+    let loads = 0;
+    const cassette = new PcscCassette(readers, undefined, true, async () => {
+      loads += 1;
+    });
+    await cassette.nextBlankCard();
+    expect(loads).toBe(0);
+  });
+
+  it('with the servos: a card left in the reader that is not blank, or does not answer, puts the ATM out of service', async () => {
+    const { readers, plug } = setUp();
+    const reader = plug('reader');
+    const cassette = new PcscCassette(readers, undefined, true, async () => {});
+    const issued = new FakeCard();
+    issued.state = CardState.ISSUED;
+    reader.place(issued);
+    expect(await cassette.unavailableReason()).toMatch(/not blank \(it is ISSUED\)/);
+    reader.remove();
+    reader.place(new FakeCard(), PRESENT | MUTE);
+    expect(await cassette.unavailableReason()).toMatch(/does not answer: its contacts don't reach the chip/);
+  });
+
+  it('with the servos: no card after the stroke is an empty hopper', async () => {
+    const { readers, plug } = setUp();
+    plug('reader');
+    const cassette = new PcscCassette(readers, undefined, true, async () => {}, 100);
+    await expect(cassette.nextBlankCard()).rejects.toThrow(/is the hopper empty/);
+  });
+
+  it('with the servos: a card PC/SC marked MUTE on its way in is powered again, and used', async () => {
+    const { readers, plug } = setUp();
+    const reader = plug('reader');
+    const cassette = new PcscCassette(readers, undefined, true, async () => {
+      reader.wakesOnConnect = true;
+      reader.place(new FakeCard(), PRESENT | MUTE); // the slot switch closed before the contacts touched
+    });
+    const card = await cassette.nextBlankCard();
+    expect((await card.info()).state).toBe(CardState.EMPTY);
+  });
+
+  it('with the servos: a card that stays MUTE (short of the contacts) fails the sale, with why', async () => {
+    const { readers, plug } = setUp();
+    const reader = plug('reader');
+    const cassette = new PcscCassette(readers, undefined, true, async () => reader.place(new FakeCard(), PRESENT | MUTE), 100);
+    await expect(cassette.nextBlankCard()).rejects.toThrow(/does not answer: its contacts don't reach the chip/);
   });
 
   it('forgets a reader that is unplugged', async () => {

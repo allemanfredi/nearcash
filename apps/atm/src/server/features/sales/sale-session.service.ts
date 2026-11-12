@@ -6,11 +6,14 @@
  *             the quote (deposit address)
  *   watch     the ATM polls the ISSUANCE SERVER (never the customer, never
  *             the chain) until the sale is PAID, refunded or expired
- *   issue     paid → next blank card from the cassette generates its keys →
+ *   issue     paid → the pusher loads the next blank card into the reader
+ *             (with the servos) and it generates its keys →
  *             the server funds and certifies it (NEAR MPC) → certificate and
  *             PIN are written and the card is verified → it is dispensed
  *             (with the printed dummy reader: nothing is issued, the card is
  *             dispensed blank, to test the sale and the mechanics)
+ *             Each step shows on the kiosk for minStepMs at least, even when
+ *             it is simulated or takes no time.
  *
  * The PIN is chosen before paying, so the banknote comes out on its own as
  * soon as the money arrives. It lives only in memory and is dropped once
@@ -18,7 +21,15 @@
  */
 import { type Sale, type TrustedIssuer, prepareCard, writeCertificate } from '@nearcash/core';
 import { Inject, Injectable } from '@nestjs/common';
-import { type SessionView, type StartRequest, findPaymentOption, PIN_MAX_LENGTH, PIN_MIN_LENGTH, refundAddressProblem } from '@nearcash/kiosk-api';
+import {
+  type SessionView,
+  type Stage,
+  type StartRequest,
+  findPaymentOption,
+  PIN_MAX_LENGTH,
+  PIN_MIN_LENGTH,
+  refundAddressProblem,
+} from '@nearcash/kiosk-api';
 import { DomainError } from '../../common/domain-error.ts';
 import { OPERATOR_LOG, type OperatorLog } from '../../common/operator-log.ts';
 import { ATM_CONFIG, type AtmConfig } from '../../config/atm-config.ts';
@@ -39,7 +50,7 @@ export class SaleSessionService {
     @Inject(DISPENSER) private readonly dispenser: Dispenser,
     @Inject(TRUSTED_ISSUERS) private readonly trustedIssuers: readonly TrustedIssuer[],
     private readonly catalog: CatalogService,
-    @Inject(ATM_CONFIG) private readonly config: Pick<AtmConfig, 'pollMs' | 'graceMs'>,
+    @Inject(ATM_CONFIG) private readonly config: Pick<AtmConfig, 'pollMs' | 'graceMs' | 'minStepMs'>,
     @Inject(OPERATOR_LOG) private readonly log: OperatorLog,
   ) {}
 
@@ -177,20 +188,17 @@ export class SaleSessionService {
     if (this.cassette.dummy) return this.handOutBlankCard(session);
     const id = session.sale.id;
     try {
-      session.stage = 'preparing';
-      const card = await this.cassette.nextBlankCard();
-      const prepared = await prepareCard(card);
-
-      session.stage = 'certifying';
+      const { card, prepared } = await this.step(session, 'preparing', async () => {
+        const card = await this.cassette.nextBlankCard();
+        return { card, prepared: await prepareCard(card) };
+      });
       // The chip's birth certificate goes along: the issuance server checks it before funding.
-      const certificate = await this.issuance.issue(id, prepared.keys, prepared.birth);
-
-      session.stage = 'writing';
-      await writeCertificate(card, certificate, session.pin, this.trustedIssuers);
-      session.pin = '';
-
-      session.stage = 'dispensing';
-      await this.dispenser.dispense();
+      const certificate = await this.step(session, 'certifying', () => this.issuance.issue(id, prepared.keys, prepared.birth));
+      await this.step(session, 'writing', async () => {
+        await writeCertificate(card, certificate, session.pin, this.trustedIssuers);
+        session.pin = '';
+      });
+      await this.step(session, 'dispensing', () => this.dispenser.dispense());
       session.stage = 'dispensed';
       this.log.log(`[sale ${id}] banknote dispensed`);
     } catch (error) {
@@ -201,9 +209,10 @@ export class SaleSessionService {
   /**
    * Paid, with the printed dummy reader in the turret (NEARCASH_CASSETTE=dummy):
    * there is no chip to talk to, so nothing is issued (no card keys, no
-   * funding, no certificate, no PIN) and the card comes out blank. The sale
-   * stays PAID at the issuance server: with real payments, the money waits in
-   * the reserve until the operator refunds it.
+   * funding, no certificate, no PIN) and the card comes out blank. The kiosk
+   * still shows every step, each for minStepMs, as for a real banknote: a demo
+   * shows the whole issuing. The sale stays PAID at the issuance server: with
+   * real payments, the money waits in the reserve until the operator refunds it.
    */
   private async handOutBlankCard(session: SaleSession): Promise<void> {
     const id = session.sale.id;
@@ -215,13 +224,28 @@ export class SaleSessionService {
           : 'OPERATOR: the sale stays PAID at the issuance server, refund the money from the reserve'),
     );
     try {
-      session.stage = 'dispensing';
-      await this.dispenser.dispense();
+      // The card goes into the dummy as into the reader; the next two only show.
+      await this.step(session, 'preparing', () => this.dispenser.load());
+      for (const stage of ['certifying', 'writing'] as const) await this.step(session, stage, async () => {});
+      await this.step(session, 'dispensing', () => this.dispenser.dispense());
       session.stage = 'dispensed';
       this.log.log(`[sale ${id}] blank card dispensed (dummy reader)`);
     } catch (error) {
       this.fail(session, message(error));
     }
+  }
+
+  /**
+   * One issuing step: the kiosk shows `stage` while `work` runs, and for
+   * minStepMs at least (a faster step waits the rest), so the customer, or a
+   * demo video, sees every step. A step that fails stops at once.
+   */
+  private async step<T>(session: SaleSession, stage: Stage, work: () => Promise<T>): Promise<T> {
+    session.stage = stage;
+    const started = Date.now();
+    const result = await work();
+    await sleep(started + this.config.minStepMs - Date.now());
+    return result;
   }
 
   private fail(session: SaleSession, problem: string): void {

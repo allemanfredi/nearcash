@@ -7,6 +7,8 @@
  *   node apps/atm/src/card-test-cli.ts       this alone, on the Pi, on a card with the applet freshly installed
  *   node apps/atm/src/card-test-cli.ts --wait   only waits until a card is in the reader (up to 60 s), sending it nothing
  *   node apps/atm/src/card-test-cli.ts --blank  only checks that the card is blank again (EMPTY, never born): after a reset
+ *   node apps/atm/src/card-test-cli.ts --state  only prints the card's state, one line: "state: NONE" (no NearCash
+ *                                               applet) or its applet's (EMPTY … SPENT); for pnpm card:reset
  *
  * The card must be blank (EMPTY) and never born. The steps, in order:
  *   1. SELECT and INFO: the applet answers, protocol v2, EMPTY;
@@ -78,6 +80,21 @@ try {
       if (await card.readBirth()) throw new Error('the card is still born');
       return `EMPTY, never born, ${info.pinTriesRemaining} PIN tries`;
     });
+    readers.stop();
+    process.exit(0);
+  }
+  if (process.argv.includes('--state')) {
+    // scripts/card-test.sh --reset (pnpm card:reset) reads it before wiping the
+    // card: a card that holds a banknote is worth a question first.
+    const card = new NearCashCard(await waitForCard(readers));
+    let hasApplet = true;
+    try {
+      await card.select();
+    } catch (error) {
+      if (!(error instanceof CardError)) throw error;
+      hasApplet = false;   // the card refused the SELECT: no NearCash applet on it
+    }
+    console.log(`state: ${hasApplet ? cardStateName((await card.info()).state) : 'NONE'}`);
     readers.stop();
     process.exit(0);
   }

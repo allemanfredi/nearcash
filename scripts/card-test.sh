@@ -4,6 +4,7 @@
 #
 #   pnpm test:card [--keep | --delete] [--cap <file>]     on the Raspberry Pi, where the reader is
 #   pnpm test:card --info                                 only reads the card's GlobalPlatform data
+#   pnpm card:reset [--yes] [--cap <file>]                only resets the card (after a real test)
 #
 #   (no option)  at the end the card is reset: the applet is deleted and
 #                installed again, so the card is blank (EMPTY, never born),
@@ -18,6 +19,15 @@
 #   --info       reads the card's data (CPLC, key version) WITHOUT
 #                authenticating: safe on a card that refused its keys, to find
 #                out which ones it expects. Changes nothing.
+#   --reset      (pnpm card:reset) only resets the card, without testing it:
+#                after a real test on the ATM the card goes back to blank
+#                (EMPTY, never born), ready for pnpm card:birth and another
+#                test. It reads the card's state first: a card that holds a
+#                banknote (KEYS_GENERATED or ISSUED) is reset only once you
+#                type RESET, since its keys go and any funds sent to its
+#                account with them (redeem it first). A SPENT or blank card,
+#                or one without the applet, is reset straight away.
+#   --yes        with --reset: no question, even for a card with a banknote.
 #
 # On the Pi it:
 #   1. downloads the Java Card tools at pinned versions, checked, into
@@ -91,12 +101,16 @@ usage() {
 
 AT_THE_END="reset"
 INFO=0
+RESET_ONLY=0    # --reset: no test, only the reset
+YES=0           # --yes: no question before resetting a card with a banknote
 CAP=""          # --cap <file>: a .cap already built elsewhere
 while [ $# -gt 0 ]; do
   case "$1" in
     --keep) AT_THE_END="keep" ;;
     --info) INFO=1 ;;
     --delete) AT_THE_END="delete" ;;
+    --reset) RESET_ONLY=1 ;;
+    --yes) YES=1 ;;
     --cap) [ $# -ge 2 ] || usage; CAP="$2"; shift ;;
     -h | --help) usage ;;
     -*) die "unknown option \"$1\" (see: pnpm test:card --help)" ;;
@@ -104,6 +118,11 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+if [ "$RESET_ONLY" = 1 ]; then
+  [ "$INFO" = 0 ] && [ "$AT_THE_END" = "reset" ] || die "--reset goes alone (with --yes or --cap): it neither tests nor reads the card's data"
+elif [ "$YES" = 1 ]; then
+  die "--yes goes with --reset (pnpm card:reset --yes)"
+fi
 
 # ============================================================== tools
 
@@ -309,6 +328,45 @@ if [ "$INFO" = 1 ]; then
   "$NODE" "$ROOT/apps/atm/src/card-test-cli.ts" --wait || die "no card in the reader within a minute"
   # gp --info only reads (SELECT, GET DATA): it never opens a secure channel.
   "$JAVA" -jar "$TOOLS/gp.jar" ${GP_READER[@]+"${GP_READER[@]}"} --info
+  exit 0
+fi
+
+# Asks before wiping a card that holds a banknote ($1, its state): its keys go,
+# and any funds sent to its account with them. Stops unless RESET is typed.
+confirm_wipe() {
+  warn "the card holds a banknote ($1): resetting it deletes its keys, and any funds sent to its"
+  warn "account are lost with them. If it holds money, redeem it first (the NearCash wallet)."
+  if [ "$YES" = 1 ]; then
+    info "--yes: resetting it anyway"
+    return
+  fi
+  [ -t 0 ] || die "not reset: a card with a banknote is reset only in a terminal (to answer) or with --yes"
+  local answer
+  read -r -p "  type RESET to wipe it, anything else to stop: " answer
+  [ "$answer" = "RESET" ] || die "not reset: the card is unchanged"
+}
+
+if [ "$RESET_ONLY" = 1 ]; then
+  step "Reading the card"
+  info "put the card in the reader (chip first, contacts up), if it isn't there"
+  "$NODE" "$ROOT/apps/atm/src/card-test-cli.ts" --wait || die "no card in the reader within a minute"
+  # The state through the applet, as the ATM reads it: no GlobalPlatform key used yet.
+  STATE_OUTPUT="$("$NODE" "$ROOT/apps/atm/src/card-test-cli.ts" --state)" || die "could not read the card's state"
+  STATE="$(sed -n 's/^state: //p' <<<"$STATE_OUTPUT")"
+  [ -n "$STATE" ] || die "could not read the card's state"
+  case "$STATE" in
+    NONE) info "no NearCash applet on the card: it will be installed, blank" ;;
+    EMPTY | SPENT) info "the card is $STATE: nothing on it is worth keeping" ;;
+    *) confirm_wipe "$STATE" ;;
+  esac
+  if [ "$STATE" = "NONE" ]; then
+    gp --install "$CAP" >/dev/null
+    info "applet installed: package $PACKAGE_AID, applet ${PACKAGE_AID}01"
+    "$NODE" "$ROOT/apps/atm/src/card-test-cli.ts" --blank || die "the card is not blank after the install"
+  else
+    reset_card
+  fi
+  printf '\n\033[1;32m✔ the card is blank (EMPTY, never born): pnpm card:birth makes it ready for the ATM\033[0m\n'
   exit 0
 fi
 

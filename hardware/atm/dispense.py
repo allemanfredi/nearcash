@@ -1,25 +1,29 @@
-"""Hands one card out of the ATM on the real servos: what the ATM server
-(apps/atm, NEARCASH_DISPENSER=servos) runs for each sale while the printed
-dummy reader stands in for the ACR39U (`pnpm atm:demo --dummy-reader`).
+"""Moves one card through the ATM on the real servos: what the ATM server
+(apps/atm, NEARCASH_DISPENSER=servos) runs for each sale, in two runs: once
+paid, `--only load` puts a card into the reader; once the banknote is written
+on it (with the dummy reader: nothing is), `--only hand-out` hands it out.
 
-    python3 hardware/atm/dispense.py                      # one card, default calibration
+    python3 hardware/atm/dispense.py --only load          # the pusher puts the next card into the reader
+    python3 hardware/atm/dispense.py --only hand-out      # the turret hands out the card in the reader
+    python3 hardware/atm/dispense.py                      # both, one after the other (a test by hand)
     python3 hardware/atm/dispense.py --pusher-reversed    # the calibration options are cycle.py's
     python3 hardware/atm/dispense.py --dry-run            # prints the steps without moving anything
 
-The steps are cycle.py's, without the pause for the issuing: with the dummy
-reader nothing is written on the card.
-  1. load      the pusher slowly to the end of its stroke: the bottom card goes into the reader;
-  2. back      the pusher home again;
-  3. hand out  the turret to its hand-out angle: the card sticks out of the smile;
-  4. take      a pause for the customer to pull it out (the dummy can't tell when it's gone);
-  5. return    the turret back to its loading angle: at rest, ready for the next card.
+The steps are cycle.py's, without the pause for the issuing (the ATM server
+issues between the two runs):
+  load      1. load      the pusher slowly to the end of its stroke: the bottom card goes into the reader;
+            2. back      the pusher home again;
+  hand-out  3. hand out  the turret to its hand-out angle: the card sticks out of the smile;
+            4. take      a pause for the customer to pull it out;
+            5. return    the turret back to its loading angle: at rest, ready for the next card.
 
 What the ATM server reads (it starts this script with spawn):
-  stdout  one line per step, for the operator's log, and the line OUT the
+  stdout  one line per step, for the operator's log, the line LOADED once the
+          card is in the reader and the pusher home, and the line OUT the
           moment the card sticks out of the smile: the kiosk then says "take it";
   stderr  why it failed, if it did;
-  exit    0 when the servos are back at rest after the card went out; 1 when
-          it stopped or failed (2: wrong options, nothing moved).
+  exit    0 when the servos are back at rest; 1 when it stopped or failed
+          (2: wrong options, nothing moved).
 SIGTERM (the server stopping it) and Ctrl+C take the servos back to rest first,
 as in cycle.py; a second one lets them go limp at once.
 
@@ -36,7 +40,9 @@ import time
 from cycle import (PUSHER_BACK, SEATED_S, Log, add_calibration_options, check_calibration, countdown,
                    go_to_rest, load_step, open_servos, release_servos, seconds, turn_turret)
 
-# The line that tells the ATM server the card is out (apps/atm/src/server/features/hardware/servo-dispenser.ts).
+# The lines that tell the ATM server the card is in the reader, and out of the smile
+# (apps/atm/src/server/features/hardware/servo-dispenser.ts).
+LOADED_LINE = 'LOADED'
 OUT_LINE = 'OUT'
 
 # How long the card stays out of the smile before the turret turns back. A card
@@ -72,15 +78,19 @@ def stop_on_sigterm(signum, frame):
     raise KeyboardInterrupt
 
 
-def hand_out(turret, pusher, args, log):
-    """One card from the hopper to the customer's hand, from rest to rest."""
+def load(turret, pusher, args, log):
+    """The pusher puts the bottom card of the hopper into the reader and comes home."""
     log(f'load: pusher 0° → {args.stroke:g}°, slowly')
     pusher.move(args.stroke, load_step(args))
     countdown(log, SEATED_S, 'the card settles in the reader')
 
     log(f'back: pusher {args.stroke:g}° → 0°')
     pusher.move(0, PUSHER_BACK)
+    print(LOADED_LINE, flush=True)
 
+
+def hand_out(turret, pusher, args, log):
+    """The turret hands the card in the reader out of the smile, waits for it to be taken, and turns back."""
     log(f'hand out: turret {args.turret_in:g}° → {args.turret_out:g}°')
     turn_turret(turret, pusher, args.turret_out)
     print(OUT_LINE, flush=True)
@@ -92,8 +102,11 @@ def hand_out(turret, pusher, args, log):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Hands one card out on the real servos (for the ATM server, with the dummy reader).')
+    parser = argparse.ArgumentParser(description='Moves one card through the ATM on the real servos (for the ATM server).')
     add_calibration_options(parser)
+    parser.add_argument('--only', choices=['load', 'hand-out'],
+                        help='one phase: "load" (the pusher puts the next card into the reader) or '
+                             '"hand-out" (the turret hands out the card in the reader); without it, both')
     parser.add_argument('--take-seconds', type=seconds, default=TAKE_S, help=f'how long the card stays out before the turret turns back (default {TAKE_S:g})')
     args = parser.parse_args()
     check_calibration(parser, args)
@@ -109,7 +122,10 @@ def main():
         lock = None if args.dry_run else hold_the_servos(log)   # held until main() returns
         turret, pusher = open_servos(args)
         go_to_rest(turret, pusher, args, log)
-        hand_out(turret, pusher, args, log)
+        if args.only != 'hand-out':
+            load(turret, pusher, args, log)
+        if args.only != 'load':
+            hand_out(turret, pusher, args, log)
         return 0
     except KeyboardInterrupt:
         if turret is None or pusher is None:
@@ -122,7 +138,7 @@ def main():
             print('let go: the servos are limp where they are', file=sys.stderr, flush=True)
         return 1
     except Exception as error:   # a servo that can't be driven (no PWM, no permission…): say why, in one line
-        print(f'the servos could not hand the card out: {error}', file=sys.stderr, flush=True)
+        print(f'the servos could not move the card: {error}', file=sys.stderr, flush=True)
         return 1
     finally:
         release_servos(turret, pusher, args)

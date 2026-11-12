@@ -31,6 +31,7 @@ async function start(kioskKey?: string): Promise<string> {
     dispenser: { kind: 'sim' },
     pollMs: 5,
     graceMs: 60_000,
+    minStepMs: 0,
   };
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] })
     .overrideProvider(ISSUANCE)

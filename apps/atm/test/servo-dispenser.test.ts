@@ -13,11 +13,52 @@ import { atmConfigFromEnvironment } from '../src/server/config/atm-config.ts';
 import { ServoDispenser } from '../src/server/features/hardware/servo-dispenser.ts';
 import { RecordingLog, waitUntil } from './fakes.ts';
 
-/** A dispenser whose "dispense.py" is this JavaScript, run by Node. */
+/** A dispenser whose "dispense.py" is this JavaScript, run by Node ("--": the phase's options go to the script). */
 function dispenserRunning(script: string) {
   const log = new RecordingLog();
-  return { dispenser: new ServoDispenser([process.execPath, '-e', script], log), log };
+  return { dispenser: new ServoDispenser([process.execPath, '-e', script, '--'], log), log };
 }
+
+describe('the servo dispenser: two runs a card, load then hand out', () => {
+  it('runs the script with --only load, then --only hand-out', async () => {
+    const { dispenser, log } = dispenserRunning(`
+      const phase = process.argv.slice(process.argv.indexOf('--only') + 1)[0];
+      console.log('phase ' + phase);
+      console.log(phase === 'load' ? 'LOADED' : 'OUT');
+    `);
+    await dispenser.load();
+    await dispenser.dispense();
+    await waitUntil(() => log.includes('phase hand-out'));
+    expect(log.lines.filter((line) => line.includes('phase'))).toEqual(['[servos] phase load', '[servos] phase hand-out']);
+    expect(log.includes('the card is in the reader, the pusher home')).toBe(true);
+  });
+
+  it('a load fails with the script’s reason when it stops before the card is in', async () => {
+    const { dispenser } = dispenserRunning(`
+      console.error('the servos could not move the card: no hardware PWM');
+      process.exit(1);
+    `);
+    await expect(dispenser.load()).rejects.toThrow(/before the card was loaded \(the servos could not move the card: no hardware PWM\)/);
+  });
+
+  it('a load that ends without LOADED fails', async () => {
+    const { dispenser } = dispenserRunning(`console.log('done: at rest');`);
+    await expect(dispenser.load()).rejects.toThrow(/without loading the card/);
+  });
+
+  it('the hand-out waits for the load to finish: the servos never move twice at once', async () => {
+    const { dispenser, log } = dispenserRunning(`
+      const phase = process.argv.slice(process.argv.indexOf('--only') + 1)[0];
+      console.log('begin ' + phase);
+      console.log(phase === 'load' ? 'LOADED' : 'OUT');
+      setTimeout(() => console.log('exit ' + phase), 100);
+    `);
+    await Promise.all([dispenser.load(), dispenser.dispense()]);
+    await waitUntil(() => log.includes('exit hand-out'));
+    const lines = log.lines.filter((line) => /begin|exit/.test(line));
+    expect(lines).toEqual(['[servos] begin load', '[servos] exit load', '[servos] begin hand-out', '[servos] exit hand-out']);
+  });
+});
 
 describe('the servo dispenser', () => {
   it('is done when the card is out; the script goes on to rest by itself', async () => {
@@ -104,11 +145,8 @@ describe('dispenser configuration', () => {
     expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'dummy' }).dispenser).toEqual({ kind: 'sim' });
   });
 
-  it('refuses the servos without the dummy reader, and unknown dispensers', () => {
-    expect(() => atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc', NEARCASH_DISPENSER: 'servos' })).toThrow(
-      /servos works only with NEARCASH_CASSETTE=dummy/,
-    );
-    expect(() => atmConfigFromEnvironment({ NEARCASH_DISPENSER: 'servos' })).toThrow(/only with NEARCASH_CASSETTE=dummy/);
+  it('servos with the NFC reader too (the pusher loads each card once paid); unknown dispensers are refused', () => {
+    expect(atmConfigFromEnvironment({ NEARCASH_CASSETTE: 'pcsc', NEARCASH_DISPENSER: 'servos' }).dispenser.kind).toBe('servos');
     expect(() => atmConfigFromEnvironment({ NEARCASH_DISPENSER: 'motor' })).toThrow(/must be "servos"/);
   });
 });

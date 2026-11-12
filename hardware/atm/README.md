@@ -336,19 +336,21 @@ scripts move the servos calmly from where they were left (noted on the Pi in
 pusher home before the turret turns; `cycle` starts and ends at rest and goes
 back to rest on Ctrl+C (a second Ctrl+C lets the servos go limp at once).
 
-With the dummy reader the ATM server already drives the servos
-(`NEARCASH_DISPENSER=servos`, set by `pnpm atm:demo --dummy-reader`). For each
-paid sale it starts `dispense.py` with spawn, which:
-- loads the card and brings the pusher back;
-- hands the card out, and the kiosk says "take it";
-- waits 15 s and turns the turret back to the loading angle.
+The ATM server drives the servos (`NEARCASH_DISPENSER=servos`, set by
+`pnpm atm:demo`, with the NFC reader or `--dummy-reader`). For each paid sale
+it starts `dispense.py` twice, with spawn:
+- `--only load`: the pusher loads the bottom card into the reader and comes
+  home. The server then waits for the reader to see the card and writes the
+  banknote on it (with the dummy reader nothing is written);
+- `--only hand-out`: the turret hands the card out, and the kiosk says
+  "take it"; it waits 15 s and turns back to the loading angle.
 
-A card left in goes back in with the turret: take it out of the reader before
-the next sale. The calibration options are `cycle.py`'s: give them to the demo
-in `NEARCASH_SERVO_OPTIONS` (e.g. `NEARCASH_SERVO_OPTIONS="--pusher-reversed"
-pnpm atm:demo --dummy-reader …`). With the NFC reader the card must be loaded
-before the sale (the ATM checks it is blank first): that part of the server is
-not written yet.
+Between sales the reader is empty. A card left in (not taken in time, or a
+sale that failed) puts the ATM out of service, with the reason on the kiosk,
+until it is taken out of the reader; a blank one left in is used by the next
+sale. The calibration options are `cycle.py`'s: give them to the demo in
+`NEARCASH_SERVO_OPTIONS` (e.g. `NEARCASH_SERVO_OPTIONS="--pusher-reversed"
+pnpm atm:demo …`).
 
 ## How we know the design is right, and what is left to check
 

@@ -185,18 +185,17 @@ function DepositReceivedScreen({ session, onDone }: { session: SessionView; onDo
 
 const ISSUING_STEPS: { stage: Stage; label: string }[] = [
   { stage: 'preparing', label: 'Taking a blank note from the cassette' },
-  { stage: 'certifying', label: 'Funding it and having NEAR MPC certify it' },
+  { stage: 'certifying', label: 'Funding it and requesting its certificate from NEAR Chain Signatures' },
   { stage: 'writing', label: 'Writing the certificate and your PIN' },
   { stage: 'dispensing', label: 'Handing it over' },
 ];
 
-/** With the dummy reader nothing is issued: the ATM only loads a blank card and hands it over. */
-const DUMMY_READER_STEPS: { stage: Stage; label: string }[] = [
-  { stage: 'dispensing', label: 'Loading a blank card and handing it over (dummy reader: nothing is written)' },
-];
-
+/**
+ * Every step, with the dummy reader too: there the ATM simulates the first
+ * three (nothing is written on the card), each shown for a few seconds.
+ */
 function IssuingScreen({ session, dummyReader }: { session: SessionView; dummyReader: boolean }) {
-  const steps = dummyReader ? DUMMY_READER_STEPS : ISSUING_STEPS;
+  const steps = ISSUING_STEPS;
   const current = steps.findIndex((step) => step.stage === session.stage);
   return (
     <Screen

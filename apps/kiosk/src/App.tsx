@@ -148,12 +148,15 @@ export function App() {
   }
 
   // No new sale while the ATM can't make banknotes (a sale already running is still shown).
+  // The ATM server's reason goes underneath, small, for the operator: what to fix.
   if (setup.outOfService && !session) {
     return (
       <Screen
         title="Out of service"
         lead="This ATM can’t make banknotes right now. Please try again later."
-      />
+      >
+        <p className="note">Operator: {setup.outOfService}</p>
+      </Screen>
     );
   }
 

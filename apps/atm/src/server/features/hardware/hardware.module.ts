@@ -40,10 +40,12 @@ const PCSC_READERS = Symbol('PCSC_READERS');
     },
     {
       provide: CASSETTE,
-      inject: [ATM_CONFIG, PCSC_READERS],
-      useFactory: (config: AtmConfig, readers: PcscReaders | undefined): Cassette => {
+      inject: [ATM_CONFIG, PCSC_READERS, DISPENSER],
+      useFactory: (config: AtmConfig, readers: PcscReaders | undefined, dispenser: Dispenser): Cassette => {
         if (config.cassette.kind === 'pcsc' && readers) {
-          return new PcscCassette(readers, config.cassette.readerName, config.cassette.requireBirth);
+          // With the servos the pusher loads each card once its sale is paid; without, an operator puts it there.
+          const load = dispenser.loadsCards ? () => dispenser.load() : undefined;
+          return new PcscCassette(readers, config.cassette.readerName, config.cassette.requireBirth, load);
         }
         if (config.cassette.kind === 'dummy') return new DummyReader();
         return new NoCardReader();

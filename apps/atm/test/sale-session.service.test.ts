@@ -11,7 +11,7 @@ import { CatalogService } from '../src/server/features/catalog/catalog.service.t
 import { SaleSessionService } from '../src/server/features/sales/sale-session.service.ts';
 import { BANKNOTE, CountingCassette, CountingDispenser, EVM_ADDRESS, FakeIssuance, RecordingLog, waitUntil } from './fakes.ts';
 
-function setup(options: { graceMs?: number } = {}) {
+function setup(options: { graceMs?: number; minStepMs?: number } = {}) {
   const issuance = new FakeIssuance();
   const cassette = new CountingCassette();
   const dispenser = new CountingDispenser();
@@ -22,7 +22,7 @@ function setup(options: { graceMs?: number } = {}) {
     dispenser,
     [DEV_ISSUER],
     new CatalogService(issuance, cassette),
-    { pollMs: 5, graceMs: options.graceMs ?? 60_000 },
+    { pollMs: 5, graceMs: options.graceMs ?? 60_000, minStepMs: options.minStepMs ?? 0 },
     log,
   );
   return { sessions, issuance, cassette, dispenser, log };
@@ -176,11 +176,32 @@ describe('the dummy reader (testing the sale and the mechanics before the NFC re
     await sessions.simulatePayment();
     await waitUntil(() => sessions.view()?.stage === 'dispensed');
     expect(cassette.taken).toBe(0); // no card is asked for: there is no chip to talk to
+    expect(dispenser.loaded).toBe(1); // but the pusher loads one into the dummy, as into the reader
     expect(issuance.issued).toBe(0); // no funding, no certificate
     expect(issuance.sales.get(issuance.firstSaleId())?.status).toBe('PAID');
     expect(dispenser.dispensed).toBe(1);
     expect(log.includes('DUMMY READER')).toBe(true);
     expect(log.includes('no money moved')).toBe(true);
+  });
+
+  it('the screen still shows every issuing step, each for minStepMs at least (a demo shows the whole issuing)', async () => {
+    const { sessions, cassette } = setup({ minStepMs: 60 });
+    cassette.dummy = true;
+    await sessions.start(REQUEST);
+    await sessions.simulatePayment();
+    // Each stage the screen could see, and when it first appeared.
+    const seen: { stage: string; at: number }[] = [];
+    await waitUntil(() => {
+      const stage = sessions.view()?.stage;
+      if (stage && seen.at(-1)?.stage !== stage) seen.push({ stage, at: Date.now() });
+      return stage === 'dispensed';
+    });
+    const issuing = seen.filter((entry) => entry.stage !== 'awaiting_payment');
+    expect(issuing.map((entry) => entry.stage)).toEqual(['preparing', 'certifying', 'writing', 'dispensing', 'dispensed']);
+    for (let i = 1; i < issuing.length; i += 1) {
+      // 5 ms of slack: the test looks every 5 ms, and timers may fire a little early
+      expect(issuing[i]!.at - issuing[i - 1]!.at).toBeGreaterThanOrEqual(55);
+    }
   });
 
   it('real payments: the operator is told to refund the money, which stays in the reserve', async () => {

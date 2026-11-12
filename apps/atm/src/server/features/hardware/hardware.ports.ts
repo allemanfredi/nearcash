@@ -1,8 +1,10 @@
 /**
  * The ATM's hardware, as the server sees it:
- *  - the cassette: a stack of BLANK cards in front of an NFC reader. The
- *    server talks to the card at the reader, then the dispenser pushes it out;
- *  - the dispenser: moves the written card to the customer's tray.
+ *  - the cassette: a stack of BLANK cards (the hopper) in front of an NFC
+ *    reader. Once a sale is paid, the next card goes into the reader and the
+ *    server talks to it;
+ *  - the dispenser: the servos. It loads the next card into the reader (the
+ *    pusher), and hands the written card out (the turret).
  *
  * The cassette is the NFC reader (PcscCassette, NEARCASH_CASSETTE=pcsc), the
  * printed dummy reader (DummyReader, NEARCASH_CASSETTE=dummy: no chip, the
@@ -21,18 +23,29 @@ export interface Cassette {
    */
   readonly dummy: boolean;
   /**
-   * Why no banknote can be made right now (no reader, no blank cards…), or
-   * null when it can. Asked before a sale starts: the ATM never takes a
-   * payment it can't turn into a banknote.
+   * Why no banknote can be made right now (no reader, a card left in it…), or
+   * null when it can. Asked before a sale starts, so the ATM doesn't take a
+   * payment it already knows it can't turn into a banknote.
    */
   unavailableReason(): Promise<string | null>;
-  /** The next blank card, at the reader and ready to talk to. */
+  /**
+   * The next blank card, at the reader and ready to talk to: loaded from the
+   * hopper first when the reader is empty and the servos can load one.
+   */
   nextBlankCard(): Promise<NearCashCard>;
 }
 
 export interface Dispenser {
   readonly name: string;
-  /** Hands the card out: resolves once the customer can take it. */
+  /** True when load() really brings a card (the servos); false: an operator puts it on the reader. */
+  readonly loadsCards: boolean;
+  /**
+   * Loads the next card: the pusher puts the bottom card of the hopper into
+   * the reader and comes home. Resolves once it has; whether a card did
+   * arrive, the reader tells.
+   */
+  load(): Promise<void>;
+  /** Hands out the card in the reader: resolves once the customer can take it. */
   dispense(): Promise<void>;
 }
 

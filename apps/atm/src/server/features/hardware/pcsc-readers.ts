@@ -63,6 +63,8 @@ type ReaderState = {
   reader: PcscReader;
   /** A card is in the reader's field and answering. */
   present: boolean;
+  /** A card is in the reader but didn't answer when PC/SC powered it (MUTE): see wakeCard(). */
+  mute: boolean;
   /** Another program holds the card exclusively: nobody else can talk to it. */
   heldElsewhere: boolean;
   /**
@@ -76,7 +78,7 @@ type ReaderState = {
 
 /** A reader chosen to work with, or why there is none. */
 export type ReaderChoice =
-  | { ok: true; name: string; cardPresent: boolean; heldElsewhere: boolean }
+  | { ok: true; name: string; cardPresent: boolean; cardMute: boolean; heldElsewhere: boolean }
   | { ok: false; reason: string };
 
 export class PcscReaders {
@@ -147,7 +149,22 @@ export class PcscReaders {
     if (this.serviceProblem) return { ok: false, reason: this.serviceProblem };
     const state = this.chosen();
     if (typeof state === 'string') return { ok: false, reason: state };
-    return { ok: true, name: state.reader.name(), cardPresent: state.present, heldElsewhere: state.heldElsewhere };
+    return { ok: true, name: state.reader.name(), cardPresent: state.present, cardMute: state.mute, heldElsewhere: state.heldElsewhere };
+  }
+
+  /**
+   * Has PC/SC power a MUTE card again. PC/SC powers a card once, the moment
+   * the reader's slot switch closes: a card pushed in slowly (the pusher) can
+   * still be short of the contacts then, and stays MUTE even once it is all
+   * the way in. Connecting to it makes PC/SC power it again, where it is now;
+   * if it answers, the reader reports it present (its 'change'). Rejects when
+   * it still doesn't answer.
+   */
+  async wakeCard(): Promise<void> {
+    const state = this.chosen();
+    if (typeof state === 'string') throw new Error(state);
+    const card = await state.reader.connect(this.library.CardMode.SHARED);
+    await card.disconnect(this.library.CardDisposition.RESET).catch(() => {});
   }
 
   /**
@@ -183,7 +200,7 @@ export class PcscReaders {
   }
 
   private track(reader: PcscReader): void {
-    const state: ReaderState = { reader, present: false, heldElsewhere: false, generation: 0, connection: undefined };
+    const state: ReaderState = { reader, present: false, mute: false, heldElsewhere: false, generation: 0, connection: undefined };
     this.readers.set(reader.name(), state);
     this.onEvent(`reader connected: ${reader.name()}`);
     const { PRESENT, MUTE, EXCLUSIVE } = this.library.ReaderStatus;
@@ -192,6 +209,7 @@ export class PcscReaders {
       // A card that does not answer (MUTE) is as good as no card. "In use"
       // is not checked: our own shared connection sets it.
       const present = status.has(PRESENT) && !status.has(MUTE);
+      state.mute = status.has(PRESENT) && status.has(MUTE);
       state.heldElsewhere = present && status.has(EXCLUSIVE);
       if (present === state.present) return;
       this.dropConnection(state);
@@ -202,6 +220,7 @@ export class PcscReaders {
     reader.on('disconnect', () => {
       this.dropConnection(state);
       state.present = false;
+      state.mute = false;
       state.generation += 1;
       this.readers.delete(reader.name());
       this.onEvent(`reader disconnected: ${reader.name()}`);

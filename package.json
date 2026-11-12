@@ -23,6 +23,7 @@
     "atm:reader": "pnpm --filter @nearcash/atm reader",
     "card:birth": "pnpm --filter @nearcash/atm birth",
     "test:card": "bash scripts/card-test.sh",
+    "card:reset": "bash scripts/card-test.sh --reset",
     "atm:servos": "python3 hardware/atm/servo.py",
     "atm:cycle": "python3 hardware/atm/cycle.py",
     "kiosk:dev": "pnpm --filter @nearcash/kiosk dev",

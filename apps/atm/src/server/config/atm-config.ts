@@ -21,10 +21,11 @@
  *                                                       (docs/protocol.md §5.8): the NFC reader accepts
  *                                                       a blank card without a birth certificate; the
  *                                                       issuance server must skip them too
- *   NEARCASH_DISPENSER       sim                        sim: nothing moves, the dispense is only logged
- *                                                       servos: the turret and the pusher, through
- *                                                               hardware/atm/dispense.py (for now only with
- *                                                               NEARCASH_CASSETTE=dummy)
+ *   NEARCASH_DISPENSER       sim                        sim: nothing moves, only logged (with the NFC reader,
+ *                                                            an operator puts each card on it before the sale)
+ *                                                       servos: the pusher loads each card once its sale is
+ *                                                               paid, the turret hands it out, through
+ *                                                               hardware/atm/dispense.py
  *   NEARCASH_SERVO_OPTIONS   the servos' calibration, as for `pnpm atm:cycle`, e.g. "--pusher-reversed --stroke 160"
  */
 import { existsSync } from 'node:fs';
@@ -70,6 +71,12 @@ export type AtmConfig = {
   pollMs: number;
   /** After a quote's deadline, how long to keep trying when the issuance server can't be reached. */
   graceMs: number;
+  /**
+   * How long the kiosk shows each issuing step at least. The kiosk asks for
+   * the sale every 1.5 s: a step done faster (a simulated one: the dummy
+   * reader, payments, funding or MPC skipped) would flash by or never show.
+   */
+  minStepMs: number;
 };
 
 export class ConfigurationError extends Error {
@@ -104,15 +111,6 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
   if (dispenser !== 'sim' && dispenser !== 'servos') {
     throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: must be "servos" (the turret and the pusher) or "sim"`);
   }
-  // The servos load the next card at hand-out time, which suits only the dummy
-  // reader: with the NFC reader the blank card must be on it before the sale
-  // (the ATM checks it), and that loading is not written yet.
-  if (dispenser === 'servos' && cassette !== 'dummy') {
-    throw new ConfigurationError(
-      'NEARCASH_DISPENSER=servos works only with NEARCASH_CASSETTE=dummy for now: with the NFC reader, ' +
-        'the next card must be loaded before the sale, which the servos do not do yet',
-    );
-  }
   // "--pusher-reversed --stroke 160" → ["--pusher-reversed", "--stroke", "160"]: dispense.py checks them.
   const servoOptions = (env.NEARCASH_SERVO_OPTIONS ?? '').split(/\s+/).filter((option) => option !== '');
 
@@ -134,5 +132,6 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
     dispenser: dispenser === 'servos' ? { kind: 'servos', command: ['python3', DISPENSE_SCRIPT, ...servoOptions] } : { kind: 'sim' },
     pollMs: 3_000,
     graceMs: 15 * 60_000,
+    minStepMs: 3_000,
   };
 }

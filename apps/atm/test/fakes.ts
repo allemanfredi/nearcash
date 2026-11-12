@@ -142,7 +142,12 @@ export class CountingCassette implements Cassette {
 
 export class CountingDispenser implements Dispenser {
   readonly name = 'test dispenser';
+  readonly loadsCards = false;
+  loaded = 0;
   dispensed = 0;
+  async load(): Promise<void> {
+    this.loaded += 1;
+  }
   /** When set, dispense() fails with it (e.g. a servo that can't be driven). */
   failure: Error | undefined;
   async dispense(): Promise<void> {

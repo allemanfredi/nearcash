@@ -297,11 +297,14 @@ GlobalPlatformPro (the `gp` tool, which uses the GlobalPlatform keys of §2):
 1. Wipe the card: delete everything on it. A card on which the default keys
    do not work (someone changed them) is discarded.
 2. Install the applet (§3). The card is now `EMPTY`. The `.cap` is built by
-   `./gradlew cap` in `applet/`. `pnpm test:card` (on the Pi, or from
-   another computer with the Pi's address) builds it, writes it on the card in
-   the reader, runs a banknote's whole life on the card with the public DEV
-   keys, and resets it (applet deleted and installed again: `EMPTY`, never
-   born), so the card can be tested again.
+   `./gradlew cap` in `applet/`. `pnpm test:card` (on the Pi, where the
+   reader is) builds it, writes it on the card in the reader, runs a
+   banknote's whole life on the card with the public DEV keys, and resets it
+   (applet deleted and installed again: `EMPTY`, never born), so the card can
+   be tested again. After a real test on the ATM, `pnpm card:reset` (on the
+   Pi) resets the card the same way without testing it; it asks first when
+   the card still holds a banknote (`KEYS_GENERATED` or `ISSUED`: its keys,
+   and any funds on its account, go with the reset).
 3. Give it its birth certificate (§5.8): `pnpm card:birth --key <file>`, on
    the bank's offline production station (`--new-key <file>` makes the
    production key once; `--dev` uses the public DEV production key, tests
