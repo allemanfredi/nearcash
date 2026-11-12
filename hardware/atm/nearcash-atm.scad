@@ -31,7 +31,7 @@
 // hopper), −Y to the front (the customer); Z = 0 is the table.
 
 /* [What to show] */
-part = "assembly"; // [assembly, section, chassis, legs_front, legs_back, channel_post, phone_shelf, phone_back, channel_floor, hopper, gate_0_9, gate_1_0, gate_1_1, gate_1_2, carriage, lever, turret, turret_strap, servo_clamp, face, test_fit, test_horn, test_reader, dummy_reader, dummy_reader_lid, dummy_preview]
+part = "assembly"; // [assembly, section, chassis, legs_front, legs_back, channel_post, phone_shelf, phone_back, channel_floor, hopper, gate_0_9, gate_1_0, gate_1_1, gate_1_2, gate_1_0_tongue, carriage, lever, turret, reader_screw, reader_shim_0_5, reader_shim_1_0, reader_shim_2_0, reader_shim_4_0, reader_shim_8_0, turret_strap, reader_clip, reader_clip_long, servo_clamp, face, test_fit, test_horn, test_reader, dummy_reader, dummy_reader_lid, dummy_preview]
 // Assembly only: 0 = loading (slot towards the hopper), 180 = handing the banknote out.
 turret_angle = 0; // [0:5:180]
 // Assembly only: 0 = pusher at home, 1 = card fully in the reader.
@@ -46,9 +46,12 @@ dummy = false;
 
 /* [Measure these on your hardware] */
 // How far a card goes into the ACR39U (85.6 minus what still sticks out).
-card_insert_depth = 60; // [40:0.5:75]
-// Height of the card's lower face above the reader's base, when inserted.
-reader_slot_bottom = 6.0; // [2:0.1:10]
+// Measured on a photo of our reader, a card fully in: 33.1 mm sticks out (±1 mm).
+card_insert_depth = 52.5; // [40:0.5:75]
+// Height of the card's lower face above the reader's base (the bottom of its
+// feet), when inserted. From ACS's drawing of the ACR39U-U1 (±0.7 mm): the
+// four screws under the reader's feet make up the difference (see the turret).
+reader_slot_bottom = 4.0; // [2:0.1:10]
 // MG996R: from the servo's bottom to the top face of its mounting tabs.
 servo_tab_top = 29.0;
 // The servo's cross horn (the one in the servo's box: the lever and the turret
@@ -103,13 +106,38 @@ horn_fit = 0.25;  // the servo horn in its pocket: clearance on every side
 reader_fit = 0.3; // the reader in its pocket on the turret: clearance on every side
 
 // ------------------------------------------------------------------ hardware
-card_l = 85.6;  card_w = 54;  card_t = 0.76;          // ISO ID-1
-reader_offset = 10;   // the reader sits 10 mm towards its slot on the turret: room for the cable boot
-cable_room = 12;
+card_l = 85.6;  card_w = 54;  card_t = 0.84;          // our J3R180 cards: 0.84 ± 0.04 mm thick (ISO ID-1 says 0.76)
+// The ACR39U's four feet and its cable boot (ACS's drawing of the ACR39U-U1,
+// scaled): the feet are 1.4 mm tall and 8.3 mm across, 20 mm each side of its
+// middle, 13.7 mm from its cable end and 12.6 mm from its slot; the boot sticks
+// out 10.5 mm from the middle of its cable end, about 6 mm thick (a 7.4 mm
+// collar on its first millimetre), its middle 8 mm above the feet's bottom.
+reader_foot_x = 20;
+reader_foot_from_cable_end = 13.7;
+reader_foot_from_slot = 12.6;
+reader_foot_h = 1.4;
+reader_boot_l = 10.5;
+reader_boot_d = 6;
+reader_boot_z = 8;
 servo_l = 40.7;  servo_w = 19.7;  servo_h = 37.2;     // MG996R body
 servo_shaft_h = 5.7;  servo_tab_span = 54.5;  servo_tab_t = 2.5;
 servo_shaft_from_end = 10.0;
 servo_tab_over = (servo_tab_span - servo_l) / 2;
+
+// ------------------------------------------------------------------ the printed layout
+// The ATM was laid out, and printed, for a first estimate of the reader: a card
+// 60 mm into it, its slot 6 mm above its base, the reader 10 mm towards its slot
+// on the turret with 12 mm of turret behind it for the cable, under a 2 mm strap.
+// The real ACR39U takes less of the card and has its slot lower. Rather than move
+// the channel, the hopper, the face, the posts and the phone shelf, only the
+// turret adapts (see the turret): the reader sits further back, so the
+// banknote's tip ends where it did, and it stands on four screws that bring its
+// slot to the card plane. These are the first estimate's values, the layout's.
+layout_insert_depth = 60;
+layout_slot_bottom = 6.0;
+layout_reader_offset = 10;
+layout_cable_room = 12;
+layout_strap_t = 2.0;
 
 // ------------------------------------------------------------------ heights (Z)
 // Both servos hang from the chassis, screwed on through their tabs. Above each
@@ -132,7 +160,7 @@ chan_floor_t = 1.2;
 platter_t = horn_t + 1.6;                               // the turret's horn pocket is in its platter
 servo_above_tabs = servo_h - servo_tab_top;
 stack_pusher = servo_above_tabs + horn_gap + horn_t + lever_over_horn + 1.2 + carriage_h + 0.4 + chan_floor_t;
-stack_turret = servo_above_tabs + horn_gap + platter_t + reader_slot_bottom;
+stack_turret = servo_above_tabs + horn_gap + platter_t + layout_slot_bottom;   // the platter's top 6 mm under the card plane, as printed
 Zc = table_gap + strap_bar + servo_tab_top + max(stack_pusher, stack_turret);
 tabs_pusher = Zc - stack_pusher;                        // top face of each servo's tabs
 tabs_turret = Zc - stack_turret;
@@ -148,22 +176,50 @@ carriage_bot_z = lever_top_z + 1.2;
 carriage_top_z = carriage_bot_z + carriage_h;
 floor_bot_z = Zc - chan_floor_t;
 platter_bot_z = case_top(tabs_turret) + horn_gap;
-reader_bot_z = platter_bot_z + platter_t;
+platter_top_z = platter_bot_z + platter_t;
+// The reader stands on four screws under its feet (see the turret): their tops
+// put its slot at the card plane. They go lift_travel higher or lower, for the
+// error on reader_slot_bottom.
+reader_bot_z = Zc - reader_slot_bottom;                 // the bottom of the reader's feet, on the screws
+reader_lift = reader_bot_z - platter_top_z;             // the screws' tops over the platter: 2 mm for a 4 mm slot
+lift_travel = 0.7;
 reader_top_z = reader_bot_z + reader_h;
-strap_t = 2.0;
+reader_top_max_z = reader_top_z + lift_travel;         // with the screws all the way up
+assert(reader_lift - lift_travel + reader_foot_h >= 0.5, "the reader would rest on the platter, not on its screws: its slot is higher than the turret allows");
+strap_t = 1.5;        // thinner than the first strap (2 mm): it stays clear of the phone shelf with the reader screwed up
 hopper_h = 12;                                          // about 12 blank cards: enough for a demo
 hopper_top_z = Zc + hopper_h;
 finger_h = 0.6;       // the pusher's finger stands this much above the floor: it catches one card only
 
 // ------------------------------------------------------------------ plan (Y)
-slot_y = reader_l / 2 + reader_offset;                  // the reader's slot, turret at 0°
 protrusion = card_l - card_insert_depth;                // what sticks out of the reader
-card_tip_y = slot_y + protrusion;
+// Where the banknote's tip ends, turret at 0°: as printed (71.7 mm), since the
+// channel, the hopper, the smile and the front posts stand round its circle.
+card_tip_y = reader_l / 2 + layout_reader_offset + card_l - layout_insert_depth;
+// So the reader sits on the turret where that tip needs it: 2.5 mm towards its
+// slot for the real reader (it was 10 for the first estimate, and a card that
+// stuck out 7.5 mm more touched the front posts).
+reader_offset = card_tip_y - protrusion - reader_l / 2;
+slot_y = reader_l / 2 + reader_offset;                  // the reader's slot, turret at 0° (without shims)
+// Shims behind the reader (see reader_shim) move it up to this much towards its
+// slot, for a card that goes into the reader deeper than card_insert_depth: the
+// pusher's stroke ends where it does, so the reader comes to meet the card.
+// Then a fully inserted card's tip is still at card_tip_y.
+// Up to 9 mm (4 mm at first: the cards went in shorter than that). So far the
+// stops in front of the slot reach out to the circle the turret's corners
+// already sweep, the screws stand halfway along the travel (a foot 4.5 mm off
+// its screw still stands a third to half on it), and from 5 mm of shims on the
+// long cable clip holds the boot.
+reader_shim_room = 9;
 card_sweep_r = norm([card_tip_y, card_w / 2]);          // the banknote's corners when the turret turns
 cradle_wall = 2.5;
 platter_x = reader_w / 2 + reader_fit + cradle_wall;
-platter_back_y = slot_y + 3;                            // a short shelf in front of the slot
-platter_front_y = -(reader_l / 2 - reader_offset) - cable_room;
+// The turret's two ends, as printed. In front of the slot the shelf the card
+// slides on is now longer; behind the reader, its cable boot reaches past the
+// face into the smile (it passes through the mouth when the turret turns).
+platter_back_y = reader_l / 2 + layout_reader_offset + 3;
+platter_front_y = -(reader_l / 2 - layout_reader_offset) - layout_cable_room;
+assert(-reader_l / 2 + reader_offset - reader_fit - cradle_wall >= platter_front_y, "the reader's cable end goes past the turret");
 turret_sweep_r = max(norm([platter_x, platter_back_y]), norm([platter_x, platter_front_y]));
 face_inner_y = platter_front_y - 1.5;                   // the face stands just in front of the turret
 face_t = 1.4;
@@ -689,7 +745,21 @@ module hopper() {
 // that works. Its edges slide down the pillars' slots; a bar rests on the
 // pillars' tops, and an arm down each pillar's outer face snaps under the
 // step there. To take it out, spread the two arms and pull the tab.
-module gate(gap) {
+// The gate's tongue: a plate that carries on from the gate's lower edge towards
+// the turret, at the gap's height, up to just outside the turret's sweep. It
+// keeps the card flat right to the end of the stroke, where the reader resists
+// most: a card that could lift there would ride over the pusher's finger, which
+// catches only 0.6 mm of its edge. With a 1.0 mm gap a card (0.84 mm) lifts
+// 0.16 mm at most. The gate with a tongue prints lying on its hopper side, the
+// tongue standing up from it like a wall: the arms and their barbs lie flat
+// (printed standing, they hung in the air and came out ragged), and the gap is
+// in the bed's plane, as precise as it gets. A 0.3 mm chamfer on the hopper
+// side's lower edge, on the bed, takes the first layer's squish; above it that
+// edge still holds back the second card.
+gate_tongue_y1 = turret_sweep_r + 1.5;                  // its end towards the turret
+gate_tongue_t = 1.6;
+gate_tongue_half = card_w / 2 - 0.5;                    // over the card, between the hopper's pillars
+module gate(gap, tongue = false) {
     body_half = hop_in_x + slot_depth - fit;
     arm_x0 = pillar_x1 + arm_gap;                       // the arms' inner face
     arm_x1 = arm_x0 + arm_t;
@@ -697,6 +767,7 @@ module gate(gap) {
     difference() {
         union() {
             translate([-body_half, gate_y0, Zc + gap]) cube([2 * body_half, gate_t, hopper_h - gap]);
+            if (tongue) translate([-gate_tongue_half, gate_tongue_y1, Zc + gap]) cube([2 * gate_tongue_half, gate_y0 - gate_tongue_y1 + eps, gate_tongue_t]);
             // the bar on the pillars' tops, and a tab to pull it out
             translate([-arm_x1, gate_y0, hopper_top_z]) cube([2 * arm_x1, gate_t, 3]);
             translate([-8, gate_y0, hopper_top_z]) cube([16, gate_t, 8]);
@@ -713,7 +784,10 @@ module gate(gap) {
         // lying on that side, so the chamfer also takes the first layer's
         // squish, which would otherwise narrow the gap. The hopper side's
         // edge, which holds back the second card, stays sharp.
-        translate([0, gate_y0, Zc + gap]) rotate([45, 0, 0]) cube([2 * body_half + 2, 0.85, 0.85], center = true);
+        // (On a gate with a tongue the tongue carries on from that edge; it prints
+        // on its hopper side instead, and that side's lower edge gets 0.3 mm.)
+        if (!tongue) translate([0, gate_y0, Zc + gap]) rotate([45, 0, 0]) cube([2 * body_half + 2, 0.85, 0.85], center = true);
+        if (tongue) translate([0, gate_y0 + gate_t, Zc + gap]) rotate([45, 0, 0]) cube([2 * body_half + 2, 0.42, 0.42], center = true);
         // The gap, engraved 0.6 mm into the hopper side (on top as it prints),
         // readable from behind the ATM.
         // (str(1.0) is "1" in OpenSCAD: the ".0" is added by hand)
@@ -778,62 +852,275 @@ module lever(angle = 90) {
 // be reached through it.
 hub_open_d = horn_boss_d + 2 * horn_fit;
 
+// ---- the reader's four screws: under its feet, they set its height
+// The reader stands on its four feet, each on the flat top of a screw in the
+// turret. Turn a screw anticlockwise and that corner of the reader goes up, by
+// the pitch (1.5 mm) a turn: about 0.4 mm a quarter turn. The screws are
+// printed too (PETG): the thread is a twisted eccentric circle, a rounded
+// single-start M10-sized thread that prints standing up, the screws and their
+// holes in the turret alike.
+// (the screws stand halfway along the shims' travel: with no shims, or all 9 mm, a foot
+// is 4.5 mm off its screw's middle and still stands a third to half on its top)
+reader_feet = [for (sx = [-1, 1], y = [-reader_l / 2 + reader_offset + reader_foot_from_cable_end, slot_y - reader_foot_from_slot])
+    [sx * reader_foot_x, y + reader_shim_room / 2]];
+lift_screw_thread_d = 10;      // over the thread's crests
+lift_screw_pitch = 1.5;
+lift_screw_depth = 1.0;        // from the crests to the roots
+lift_screw_play = 0.3;         // the turret's threaded holes are this much larger all round
+lift_screw_boss_d = 16;
+lift_screw_top_min_z = reader_bot_z - lift_travel;          // the screws' tops, all the way down...
+lift_screw_top_max_z = reader_bot_z + lift_travel;          // ...and all the way up
+// All the way down, a screw is flush with the turret's underside: the servo is under it.
+lift_screw_len = lift_screw_top_min_z - platter_bot_z;
+lift_screw_boss_top_z = lift_screw_top_min_z - 0.3;               // the threaded bosses stop just under the screws' tops
+assert(lift_screw_len - (lift_screw_top_max_z - lift_screw_boss_top_z) >= 2 * lift_screw_pitch, "the reader's screws, all the way up, hold by too little thread");
+
+// A rounded thread, d across its crests, h tall from z = 0 up: a circle off
+// the axis by half the thread's depth, turned one full turn every pitch. `grow`
+// widens it all round (a threaded hole).
+module round_thread(d, h, grow = 0) {
+    e = lift_screw_depth / 2;
+    linear_extrude(height = h, twist = -360 * h / lift_screw_pitch, slices = ceil(36 * h / lift_screw_pitch))
+        translate([e, 0]) circle(r = d / 2 - e + grow);
+}
+
+// One of the reader's screws, as it prints: standing, with a slot on top for a
+// flat screwdriver and a chamfer at the bottom to start it in its hole.
+module reader_screw() {
+    difference() {
+        round_thread(lift_screw_thread_d, lift_screw_len);
+        translate([-lift_screw_thread_d, -0.7, lift_screw_len - 1.5]) cube([2 * lift_screw_thread_d, 1.4, 2]);
+        translate([0, 0, -eps]) difference() {
+            cylinder(d = lift_screw_thread_d + 2, h = 0.6 + eps);
+            cylinder(d1 = lift_screw_thread_d - lift_screw_depth, d2 = lift_screw_thread_d - lift_screw_depth + 1.2, h = 0.6 + eps);
+        }
+    }
+}
+
+// The four screws in the turret, their tops at top_z.
+module reader_screws(top_z = reader_bot_z) {
+    for (f = reader_feet) translate([f[0], f[1], top_z - lift_screw_len]) reader_screw();
+}
+
 module turret() {
-    rib = 2.4;                                          // ribs on the bed, under the reader
+    // The ribs on the bed, under the reader. 2.4 mm tall at first: the reader's
+    // weight, on its screws up to 30 mm out from the hub, bent the turret's slot
+    // end down by about a millimetre (more with a card being pushed in), and the
+    // slot dropped under the card. 6 mm tall they are about 15 times stiffer, and
+    // still 1.7 mm under the reader screwed all the way down.
+    rib = turret_rib_h;
     wall_x0 = reader_w / 2 + reader_fit;                // the cradle's side walls, outside the reader
     end_y = -reader_l / 2 + reader_offset;              // the reader's cable end
+    side_top_z = reader_bot_z + reader_foot_h + 6;      // the side guides and the cable-end stops: 6 mm up the reader's sides
     difference() {
         union() {
-            // the hub on the horn: its top carries the reader's middle
+            // the hub on the horn
             translate([0, 0, platter_bot_z]) horn_boss(platter_t);
-            // ribs joining the hub, the side walls and the slot wall
+            // ribs joining the hub, the screws' bosses, the side walls and the slot wall
             translate([-platter_x, -3, platter_bot_z]) cube([2 * platter_x, 6, rib]);
             translate([-3, 0, platter_bot_z]) cube([6, slot_y + 1, rib]);
+            for (f = [reader_feet[0], reader_feet[1]]) translate([-platter_x, f[1] - 1.5, platter_bot_z]) cube([2 * platter_x, 3, rib]);
             for (sx = [-1, 1]) translate([sx < 0 ? -platter_x : wall_x0, end_y - cradle_wall, platter_bot_z]) cube([cradle_wall, platter_back_y - end_y + cradle_wall, rib]);
+            // the screws' threaded bosses, under the reader's feet
+            for (f = reader_feet) translate([f[0], f[1], platter_bot_z]) cylinder(d = lift_screw_boss_d, h = lift_screw_boss_top_z - platter_bot_z);
             // short guides on both sides, from the bed up: they keep the reader centred
             for (sx = [-1, 1], y = [end_y, slot_y - 14]) translate([sx < 0 ? -platter_x : wall_x0, y, platter_bot_z])
-                cube([cradle_wall, 14, platter_t + 4]);
-            // under the reader's cable-end corners: columns, and the stops that take the push of a card going in
-            for (sx = [-1, 1]) translate([sx < 0 ? -wall_x0 : wall_x0 - 8, end_y, platter_bot_z]) cube([8, 8, platter_t]);
-            for (sx = [-1, 1]) translate([sx < 0 ? -platter_x : wall_x0 - 8, end_y - reader_fit - cradle_wall, platter_bot_z]) cube([cradle_wall + 8, cradle_wall, platter_t + 7]);
-            // under the slot end: two columns at the reader's corners, and the card's shelf on top
+                cube([cradle_wall, 14, side_top_z - platter_bot_z]);
+            // at the reader's cable-end corners: columns (the shims stand on them, the whole stack), and the
+            // stops that take the push of a card going in
+            for (sx = [-1, 1]) translate([sx < 0 ? -wall_x0 : wall_x0 - 8, end_y, platter_bot_z]) cube([8, max(8, reader_shim_room + 1), platter_t]);
+            for (sx = [-1, 1]) translate([sx < 0 ? -platter_x : wall_x0 - 8, end_y - reader_fit - cradle_wall, platter_bot_z]) cube([cradle_wall + 8, cradle_wall, side_top_z - platter_bot_z]);
+            // behind the reader's cable end, under its cable boot: the cable clip's socket, a rib
+            // joining it to the cable-end stops, and one back to the hub
+            translate([-cable_clip_out / 2, cable_clip_y1, platter_bot_z]) cube([cable_clip_out, cable_clip_y0 - cable_clip_y1, cable_clip_boss_top_z - platter_bot_z]);
+            translate([-platter_x, end_y - reader_fit - cradle_wall, platter_bot_z]) cube([2 * platter_x, cable_clip_y0 - (end_y - reader_fit - cradle_wall), rib]);
+            translate([-1.5, cable_clip_y0 - eps, platter_bot_z]) cube([3, reader_feet[0][1] - cable_clip_y0 + 1.5, rib]);
+            // at the slot end: two columns at the reader's corners, and the card's shelf on top
             for (sx = [-1, 1]) translate([sx < 0 ? -platter_x : wall_x0 - 6, slot_y - 6, platter_bot_z]) cube([cradle_wall + 6, 6, platter_t]);
             translate([-shelf_half, slot_y - 3, platter_bot_z]) cube([2 * shelf_half, platter_back_y - slot_y + 3, platter_t]);
             slot_stop();
         }
-        // lead-in chamfer on the shelf, where the card arrives
-        translate([-shelf_half - 1, platter_back_y, Zc - 0.2]) rotate([45, 0, 0]) cube([2 * shelf_half + 2, 2, 2]);
         translate([0, 0, platter_bot_z]) horn_pocket(horn_t + 0.2);
-        translate([0, 0, platter_bot_z - eps]) cylinder(d = hub_open_d, h = platter_t + 2 * eps);   // the open middle (see hub_open_d)
+        translate([0, 0, platter_bot_z - eps]) cylinder(d = hub_open_d, h = max(platter_t, turret_rib_h) + 2 * eps);   // the open middle (see hub_open_d)
+        // the cable clip's socket, right through: the stem presses in
+        translate([-cable_clip_stem[0] / 2 - press, cable_clip_mid_y - cable_clip_t / 2 - press, platter_bot_z - eps])
+            cube([cable_clip_stem[0] + 2 * press, cable_clip_t + 2 * press, cable_clip_boss_top_z - platter_bot_z + 2 * eps]);
+        // the screws' threaded holes, right through, with a chamfer at the top
+        for (f = reader_feet) translate([f[0], f[1], platter_bot_z - eps]) {
+            round_thread(lift_screw_thread_d, lift_screw_boss_top_z - platter_bot_z + 2 * eps, lift_screw_play);
+            translate([0, 0, lift_screw_boss_top_z - platter_bot_z - 0.8 + eps])
+                cylinder(d1 = lift_screw_thread_d + 2 * lift_screw_play - lift_screw_depth, d2 = lift_screw_thread_d + 2 * lift_screw_play + 1, h = 0.8 + eps);
+        }
     }
 }
 
-// The wall under the reader's slot: its top is the shelf the card slides on,
-// 0.2 mm under the card plane, a little wider than a card; it is also the
-// stop that keeps the reader from sliding out towards the hopper.
-shelf_half = card_w / 2 + 3;
+// The stops in front of the reader's slot end: they keep the reader from
+// sliding out of its seat towards its slot, as the customer's pull on the
+// banknote drags it. Two, at the reader's corners, outside the card's path:
+// nothing stands under the card as it goes in. (A wall across the whole width
+// used to, its top just under the card plane: a turret sitting a little high
+// on its horn put it in the card's way.) They stand reader_shim_room further
+// out, for the reader moved by its shims, and reach over the card plane. That
+// far out they pass the platter's end: they stand on the bed, out to the circle
+// the turret's corners sweep already, so nothing on the turret reaches further.
+shelf_half = card_w / 2 + 3;                            // the platter's strip under the slot end
+slot_stop_x0 = card_w / 2 + 1.5;                        // 1.5 mm outside the card's edges
+slot_stop_top_z = Zc + 3;
+slot_stop_y0 = slot_y + reader_fit + reader_shim_room;
 module slot_stop() {
-    translate([-shelf_half, slot_y + reader_fit, reader_bot_z - eps]) cube([2 * shelf_half, platter_back_y - slot_y - reader_fit, Zc - 0.2 - reader_bot_z]);
+    intersection() {
+        for (sx = [-1, 1]) translate([sx < 0 ? -platter_x : slot_stop_x0, slot_stop_y0, platter_bot_z])
+            cube([platter_x - slot_stop_x0, turret_sweep_r - slot_stop_y0, slot_stop_top_z - platter_bot_z]);
+        translate([0, 0, platter_bot_z - eps]) cylinder(r = turret_sweep_r, h = slot_stop_top_z - platter_bot_z + 2 * eps, $fn = 360);
+    }
+}
+// How deep they are halfway across (from the reader's face to the sweep circle).
+assert(sqrt(pow(turret_sweep_r, 2) - pow((slot_stop_x0 + platter_x) / 2, 2)) - slot_stop_y0 >= 3, "the stops in front of the slot are too thin");
+
+// ---- the reader's shims: behind its cable end, they move it towards its slot
+// A U: two legs against the cable-end stops, at the reader's corners, standing
+// on the corner columns, joined by a low bar that passes under the reader and
+// its cable boot. `thickness` is how far it moves the reader; they stack, up to
+// reader_shim_room: 0.5, 1, 2, 4 and 8 mm make every half millimetre from 0.5 to 9.
+// Notches on top of the left leg tell them apart: 1 to 5, thinnest to thickest.
+// Push the reader towards its slot, drop the shim in behind.
+reader_shim_sizes = [0.5, 1.0, 2.0, 4.0, 8.0];
+shim_leg_x0 = reader_w / 2 + reader_fit - 8;            // the stops' inner part, inside the side walls
+shim_leg_x1 = reader_w / 2 + reader_fit - 0.3;
+turret_rib_h = 6;                                       // the turret's ribs (see the turret)
+shim_bar_z0 = turret_rib_h - platter_t + 0.2;           // the bar: over the turret's ribs...
+shim_bar_h = 1.2;                                       // ...and under the lowest reader (2.7 mm up)
+module reader_shim_2d(thickness) {
+    // in the turret's X (across) and Z (up), from the platter's top
+    leg_h = reader_bot_z + reader_foot_h + 6 - platter_top_z;   // as high as the stops
+    found = search(thickness, reader_shim_sizes);
+    notches = len(found) > 0 ? found[0] + 1 : 0;                // none for a stack drawn as one (the checks)
+    notch_step = notches <= 4 ? 1.6 : 1.3;                      // the 8 mm shim's five, closer, to fit on the leg
+    difference() {
+        union() {
+            for (sx = [-1, 1]) translate([sx < 0 ? -shim_leg_x1 : shim_leg_x0, 0]) square([shim_leg_x1 - shim_leg_x0, leg_h]);
+            translate([-shim_leg_x0 - eps, shim_bar_z0]) square([2 * shim_leg_x0 + 2 * eps, shim_bar_h]);
+        }
+        for (i = [0 : 1 : notches - 1]) translate([-shim_leg_x1 + 1 + i * notch_step, leg_h - 1]) square([0.8, 1 + eps]);
+    }
+}
+assert(reader_lift - lift_travel + reader_foot_h >= shim_bar_z0 + shim_bar_h + 0.5, "the shims' bar would touch the reader's underside");
+assert(platter_bot_z + turret_rib_h + 0.5 <= reader_bot_z - lift_travel + reader_foot_h, "the turret's ribs would touch the reader's underside");
+
+// A shim in place behind the reader, `thickness` thick (towards +Y), `behind`
+// further out when another shim is already there.
+module reader_shim(thickness, behind = 0) {
+    y0 = -reader_l / 2 + reader_offset - reader_fit + behind;
+    translate([0, y0 + thickness, platter_top_z]) rotate([90, 0, 0]) linear_extrude(thickness) reader_shim_2d(thickness);
 }
 
 // Over the reader: keeps it down when the customer pulls the banknote out.
-turret_strap_w = 8;
-module turret_strap() {
+// Its bar is a shallow arch, lowest in the middle: a leaf spring that presses
+// the reader down at any height of its screws. Its ends stand where the reader's
+// top is with the screws all the way up; its middle, at rest, a little under the
+// reader's top with the screws all the way down. It prints in that shape, on
+// its side. `pressed_at` draws it pressed onto a reader whose top is there, its
+// arch flatter (assembly, checks).
+// It crosses the turret over the hub, with slim legs: its ends then stay
+// closer to the axis than the face, so it never reaches the face when the
+// turret turns, and the smile keeps its printed height.
+turret_strap_w = 6;
+strap_leg_t = 1.2;
+strap_preload = 0.3;      // at rest, the arch's middle under the lowest reader's top: it always presses
+strap_bow = reader_top_max_z - (reader_top_z - lift_travel) + strap_preload;
+strap_inner = 2 * (platter_x + 0.3);                    // between its legs
+assert(norm([strap_inner / 2 + strap_leg_t, turret_strap_w / 2]) <= -face_inner_y - 0.6, "the strap's ends reach the face when the turret turns");
+module turret_strap(pressed_at = undef) {
     w = turret_strap_w;
-    inner = 2 * (platter_x + 0.3);
-    translate([0, reader_offset, 0]) {
-        translate([-inner / 2 - 2.4, -w / 2, reader_top_z + 0.2]) cube([inner + 4.8, w, strap_t]);
-        for (s = [-1, 1]) translate([s < 0 ? -inner / 2 - 2.4 : inner / 2, -w / 2, platter_bot_z - 1.4])
-            cube([2.4, w, reader_top_z + 0.2 + strap_t - platter_bot_z + 1.4]);
-        // hooks under the platter
+    inner = strap_inner;
+    span = inner + 2 * strap_leg_t;                     // the bar, from the outside of one leg to the other's
+    bow = is_undef(pressed_at) ? strap_bow : reader_top_max_z - pressed_at;
+    {
+        // the bar: between two circles of radius R and R - strap_t whose lowest
+        // points are the arch's middle, R such that the ends are bow higher
+        if (bow < 0.01) translate([-span / 2, -w / 2, reader_top_max_z]) cube([span, w, strap_t]);
+        else {
+            R = (span * span / 4 + bow * bow) / (2 * bow);
+            translate([0, w / 2, reader_top_max_z - bow + R]) rotate([90, 0, 0]) linear_extrude(w)
+                intersection() {
+                    difference() { circle(r = R, $fn = 1440); circle(r = R - strap_t, $fn = 1440); }
+                    translate([-span / 2, -R]) square([span, bow + strap_t + 1]);
+                }
+        }
+        // the legs, down past the platter, and the hooks under it
+        for (s = [-1, 1]) translate([s < 0 ? -inner / 2 - strap_leg_t : inner / 2, -w / 2, platter_bot_z - 1.4])
+            cube([strap_leg_t, w, reader_top_max_z + strap_t - platter_bot_z + 1.4]);
         for (s = [-1, 1]) translate([s < 0 ? -inner / 2 : inner / 2 - 1.2, -w / 2, platter_bot_z - 1.4]) cube([1.2, w, 1.4]);
     }
 }
 
+// ---- the reader's cable clip (white, a plate of its own)
+// When the turret turns, the USB cable pulls on the reader's cable end and
+// nudges the reader in its seat. The clip holds the cable's boot, right behind
+// the reader, and passes the pull to the turret instead. It is a fork that
+// snaps over the boot (two arms with a lip at the top), on a stem pressed into
+// a socket in the turret. It prints lying flat, so its arms bend along their
+// layers. The fork leaves the boot room for the reader's screws' whole travel.
+// The boot is 10.5 mm long: from 5 mm of shims it has moved off this clip, and
+// the long clip holds it (see reader_clip_long).
+cable_clip_t = 3.6;                                           // its thickness, along the cable
+cable_clip_arm_t = 1.6;
+cable_clip_lip = 0.5;                                         // how far each lip reaches over the boot
+cable_clip_in = reader_boot_d - 0.4;                          // between the arms: they grip the boot's sides
+cable_clip_out = cable_clip_in + 2 * cable_clip_arm_t;
+cable_clip_base_t = 1.5;
+cable_clip_stem = [3.0, 5];                                   // the stem: across, and how deep into its socket
+cable_clip_y0 = -reader_l / 2 + reader_offset - reader_fit - 0.4;   // the socket's back, just behind the reader's cable end
+cable_clip_y1 = cable_clip_y0 - 6.2;                                // and its front: it passes through the smile, like the boot
+cable_clip_mid_y = (cable_clip_y0 + cable_clip_y1) / 2;
+cable_clip_base_z = reader_bot_z - lift_travel + reader_boot_z - reader_boot_d / 2 - 0.2;   // the fork's floor, under the lowest boot
+cable_clip_boss_top_z = cable_clip_base_z - cable_clip_base_t;            // the socket's top: the clip's base sits on it
+cable_clip_lip_z = reader_bot_z + lift_travel + reader_boot_z + reader_boot_d / 2 + 0.2;    // the lips' underside, over the highest boot
+cable_clip_top_z = cable_clip_lip_z + 2 * cable_clip_lip;
+assert(cable_clip_boss_top_z - cable_clip_stem[1] >= platter_bot_z + 0.6, "the cable clip's socket is too shallow");
+assert(cable_clip_top_z + 0.5 <= mouth_z1, "the cable clip reaches the face's upper lip when the turret turns");
+
+// The clip's outline across the cable (X, and Z up), in place; without its stem
+// for the long clip's part that reaches over the shims.
+module reader_clip_2d(stem = true) {
+    if (stem) translate([-cable_clip_stem[0] / 2, cable_clip_boss_top_z - cable_clip_stem[1]]) square([cable_clip_stem[0], cable_clip_stem[1] + eps]);
+    translate([-cable_clip_out / 2, cable_clip_boss_top_z]) square([cable_clip_out, cable_clip_base_t + eps]);
+    for (sx = [-1, 1]) mirror([sx < 0 ? 1 : 0, 0]) {
+        translate([cable_clip_in / 2, cable_clip_base_z]) square([cable_clip_arm_t, cable_clip_top_z - cable_clip_base_z]);
+        // the lip: flat underneath, a ramp on top that spreads the arms as the boot goes in
+        polygon([[cable_clip_in / 2 + eps, cable_clip_lip_z], [cable_clip_in / 2 - cable_clip_lip, cable_clip_lip_z], [cable_clip_in / 2 + eps, cable_clip_top_z]]);
+    }
+}
+
+module reader_clip() {
+    translate([0, cable_clip_mid_y + cable_clip_t / 2, 0]) rotate([90, 0, 0]) linear_extrude(cable_clip_t) reader_clip_2d();
+}
+
+// The long clip, for shims of cable_clip_long_from mm and more: the same stem in
+// the same socket, its fork running on cable_clip_reach mm towards the reader,
+// over the shims (its base stands well above their bar). With thinner shims it
+// would touch the reader's cable end. It prints lying flat, its stem's end down.
+cable_clip_reach = 5;
+cable_clip_long_from = 5;
+// The back of the boot, the reader moved `shim` towards its slot (against its cable-end stops without).
+function boot_back_y(shim) = -reader_l / 2 + reader_offset - reader_fit + shim - reader_boot_l;
+cable_clip_back_y = cable_clip_mid_y - cable_clip_t / 2;
+cable_clip_long_front_y = cable_clip_mid_y + cable_clip_t / 2 + cable_clip_reach;
+assert(boot_back_y(cable_clip_long_from) <= cable_clip_back_y, "with the thickest shims for the short clip, the boot leaves it");
+assert(cable_clip_long_front_y + 0.5 <= -reader_l / 2 + reader_offset - reader_fit + cable_clip_long_from - 1, "the long clip touches the boot's collar with the thinnest shims for it");
+assert(cable_clip_long_front_y - boot_back_y(reader_shim_room) >= cable_clip_t, "with the thickest shims, the boot leaves the long clip");
+module reader_clip_long() {
+    translate([0, cable_clip_long_front_y, 0]) rotate([90, 0, 0]) linear_extrude(cable_clip_t + cable_clip_reach) reader_clip_2d(stem = false);
+    reader_clip();
+}
+
 // ------------------------------------------------------------------ the phone: shelf and back
 
-turret_top_z = reader_top_z + 0.2 + strap_t;
-shelf_z0 = turret_top_z + 3;                            // the shelf passes over the turret
+turret_top_z = reader_top_max_z + strap_t;              // the strap's ends, the reader screwed all the way up
+// The shelf passes over the turret. As printed: 3 mm over the first turret's
+// top, a reader flat on the platter under a 2 mm strap.
+shelf_z0 = platter_top_z + reader_h + 0.2 + layout_strap_t + 3;
+assert(shelf_z0 - turret_top_z >= 0.8, "the turret's strap reaches the phone shelf: lower lift_travel or strap_t");
 shelf_h = 10;
 shelf_top = shelf_z0 + shelf_h;
 shelf_y0 = face_inner_y + 0.3;                          // just behind the face
@@ -925,7 +1212,10 @@ module phone_back() {
 // What must pass through the face when the turret turns (in the face's plane, X and Z):
 // the turret itself, and the banknote's corners at the card plane.
 mouth_z0 = platter_bot_z - 1.5;
-mouth_z1 = reader_top_z + strap_t + 1.5;
+// The mouth's top, as printed: 1.5 mm over the first turret's strap. The strap
+// no longer reaches the face, and the reader, screwed up, passes under it.
+mouth_z1 = platter_top_z + reader_h + 0.2 + layout_strap_t + 1.3;
+assert(reader_top_max_z + 0.5 <= mouth_z1, "the reader, screwed up, reaches the face's upper lip when the turret turns");
 mouth_half = chord_half(turret_sweep_r + 1, -face_inner_y) + 2;
 slit_half = chord_half(card_sweep_r + sweep_margin, -face_inner_y) + 1;
 slit_z0 = Zc - 2;
@@ -1176,8 +1466,8 @@ module test_fit() {
 // The reader's height: with the ACR39U flat on the table, put this piece
 // against its slot and slide a card along its two rails. It must go in
 // without catching the slot's edge and without lifting: if not, change
-// reader_slot_bottom (the rails are that high, minus the 0.2 mm the shelf on
-// the turret keeps under the card).
+// reader_slot_bottom (the rails are that high, minus 0.2 mm: a card on them
+// lies at the slot's height).
 module test_reader() {
     len = 30;
     h = reader_slot_bottom - 0.2;
@@ -1212,7 +1502,7 @@ module test_reader() {
 //        base ─────────────────────╨──────╯  ← the slot's floor, level with the turret's shelf
 //         mouth                   end (card_insert_depth)
 
-dummy_floor_z = Zc - 0.2;                          // level with the turret's shelf: the card never climbs
+dummy_floor_z = Zc - 0.2;                          // just under the card plane: the card never climbs
 dummy_roof_z = Zc + card_t + 0.45;                 // the lid's underside: where the base and the lid meet
 dummy_slot_half = card_w / 2 + 0.5;
 dummy_end_y = slot_y - card_insert_depth;          // the slot's end: the card's leading edge stops here
@@ -1336,14 +1626,15 @@ module assembly() {
     color(dark) { servo_clamps(turret_servo, tabs_turret); servo_clamps(lever_servo, tabs_pusher); }
     color(dark) channel_floor();
     color(green) hopper();
-    color(dark) gate(1.1);
+    color(dark) gate(1.0, tongue = true);
     color([0.9, 0.9, 0.9]) carriage(finger_y);
     color([0.95, 0.6, 0.1]) lever(lever_angle);
     color(green) face();
     color(dark) face_brand();
     rotate([0, 0, turret_angle]) {
-        color(green) turret();
-        color(dark) turret_strap();
+        color(green) { turret(); reader_screws(); }
+        color(dark) turret_strap(pressed_at = reader_top_z);
+        color([0.93, 0.93, 0.93]) reader_clip();
         if (dummy) color([0.93, 0.93, 0.93]) { dummy_reader(); dummy_reader_lid(); }
         else if (show_hardware) reader_ghost();
         if (show_hardware && (pusher == 1 || turret_angle > 0 || card_in_reader)) card_ghost(slot_y - card_insert_depth);
@@ -1383,10 +1674,22 @@ else if (part == "gate_0_9") gate_on_bed(0.9);
 else if (part == "gate_1_0") gate_on_bed(1.0);
 else if (part == "gate_1_1") gate_on_bed(1.1);
 else if (part == "gate_1_2") gate_on_bed(1.2);
+else if (part == "gate_1_0_tongue") rotate([-90, 0, 0]) translate([0, -(gate_y0 + gate_t), -Zc]) gate(1.0, tongue = true);   // lying on its hopper side, the tongue up
 else if (part == "carriage") on_bed(carriage_bot_z) carriage(0);                    // pin slot on the bed side
 else if (part == "lever") on_bed(horn_bot_pusher) translate(-[lever_servo[0], lever_servo[1], 0]) lever(90);   // horn pocket on the bed side
 else if (part == "turret") on_bed(platter_bot_z) turret();                          // horn pocket on the bed side
-else if (part == "turret_strap") translate([0, 0, turret_strap_w / 2]) rotate([90, 0, 0]) translate([0, -reader_offset, 0]) turret_strap();   // on its side
+else if (part == "reader_screw") reader_screw();                                   // standing, its slot on top (print four)
+else if (part == "reader_shim_0_5") linear_extrude(0.5) reader_shim_2d(0.5);                // flat
+else if (part == "reader_shim_1_0") linear_extrude(1.0) reader_shim_2d(1.0);
+else if (part == "reader_shim_2_0") linear_extrude(2.0) reader_shim_2d(2.0);
+else if (part == "reader_shim_4_0") linear_extrude(4.0) reader_shim_2d(4.0);
+else if (part == "reader_shim_8_0") linear_extrude(8.0) reader_shim_2d(8.0);
+else if (part == "reader_clip") translate([0, -(cable_clip_boss_top_z - cable_clip_stem[1]), 0]) linear_extrude(cable_clip_t) reader_clip_2d();   // lying flat
+else if (part == "reader_clip_long") translate([0, -(cable_clip_boss_top_z - cable_clip_stem[1]), 0]) {          // lying flat, its stem's end down
+    linear_extrude(cable_clip_t) reader_clip_2d();
+    linear_extrude(cable_clip_t + cable_clip_reach) reader_clip_2d(stem = false);
+}
+else if (part == "turret_strap") translate([0, 0, turret_strap_w / 2]) rotate([90, 0, 0]) turret_strap();   // on its side
 else if (part == "servo_clamp") servo_clamp();                                  // flat (print four: one under each servo tab)
 else if (part == "face") face_on_bed() face();                                      // face down
 else if (part == "face_brand") face_on_bed() face_brand();                          // the face's black inlay, in its place

@@ -90,9 +90,9 @@ plate, in its colour, with the settings (X2D 0.4 mm nozzle, 0.24 mm layers,
 
 | Plate | Time | Filament |
 |---|---|---|
-| 1. Test pieces (print these first) | 15 min | 7 g |
+| 1. Test pieces (print these first) | 13 min | 6 g |
 | 2. Spare: the other gates, 0.9, 1.0 and 1.2 (only if 1.1 doesn't work) | 14 min | 7 g |
-| 3. Black: the lever and the reader's strap | 14 min | 6 g |
+| 3. Black: the lever and the reader's strap | 12 min | 5 g |
 | 4. Test: the horn pocket alone (to try the horn's fit again) | 6 min | 2 g |
 | 5. Green: the legs, front and back (each a pair of posts on a wide base) | 74 min | 47 g |
 | 6. Black: the plates under the servos' tabs | 5 min | 1 g |
@@ -101,11 +101,14 @@ plate, in its colour, with the settings (X2D 0.4 mm nozzle, 0.24 mm layers,
 | 9. Black: the phone holder (shelf and back) | 69 min | 42 g |
 | 10. Green: the channel posts (a ribbed peg into the chassis, a snap head through the floor) | 8 min | 2 g |
 | 11. Green: the hopper (it hooks under the floor's rails) | 36 min | 18 g |
-| 12. Black: the gate (it snaps onto the hopper's pillars) | 5 min | 2 g |
-| 13. Green: the reader's holder (the turret), its hub's middle open so the horn pocket's ceiling prints cleanly | 23 min | 9 g |
+| 12. Black: the gate with its tongue (it snaps onto the hopper's pillars; it prints lying on its hopper side, the tongue standing up) | 21 min | 4 g |
+| 13. Green: the reader's holder (the turret), its hub's middle open so the horn pocket's ceiling prints cleanly, the four screws the reader stands on, and its five shims | 61 min | 22 g |
 | 14. Green and black: the face, with black lips round the smile and the NearCash name and logo flush in black under it (the AMS swaps the colours on nozzle 1 for its first three layers) | 33 min | 15 g |
-| **The ATM** (plates 3 and 5 to 14) | **6 h 43 min** | **215 g** |
+| 16. White: the reader's cable clips, short (up to 5 mm of shims) and long (5 mm and more) | 8 min | 1 g |
+| **The ATM** (plates 3, 5 to 14 and 16) | **7 h 42 min** | **230 g** |
 | 15. Test, white: the dummy reader, base and lid (only until the ACR39U arrives, see below) | 52 min | 35 g |
+| 17. Update, green: for an ATM already built, the turret with room for 9 mm of shims (4 before; its height screws and the 0.5 to 4 mm shims fit it), and the 8 mm shim | 51 min | 19 g |
+| 18. Update, white: for an ATM already built, the long cable clip (5 mm of shims and more) | 8 min | 1 g |
 
 Add a few minutes per plate for the printer's own warm-up and calibration,
 which the estimate leaves out. None of the parts needs supports. The
@@ -125,16 +128,19 @@ prints, if you want to arrange the plates yourself:
 | `channel_post` | 4 | green (they lock the floor down: a ribbed peg into the chassis, a snap head through the floor) |
 | `channel_floor` | 1 | green (prints upside down: the cards slide on the face on the bed, so the smooth plate, with glue stick for PETG, is best; the textured one works too) |
 | `hopper` | 1 | green (it snaps onto the floor: four fingers hook under the rails, the front pads stop it going forward) |
-| `gate_1_1` | 1 | black (it snaps onto the hopper's front pillars; `gate_0_9`, `gate_1_0`, `gate_1_2` are spares with other gaps, on plate 2; each has its gap engraved on the hopper side) |
+| `gate_1_0_tongue` | 1 | black (it snaps onto the hopper's front pillars; a 1.0 mm gap, and a tongue that keeps the card flat to the end of the stroke; `gate_0_9`, `gate_1_0`, `gate_1_1`, `gate_1_2` are spares without a tongue, on plate 2; each has its gap engraved on the hopper side) |
 | `carriage` | 1 | any (it hides under the floor; the project prints it green) |
 | `lever` | 1 | black |
 | `turret` | 1 | green |
+| `reader_screw` | 4 | green (standing, slot up) |
+| `reader_shim_0_5`, `reader_shim_1_0`, `reader_shim_2_0`, `reader_shim_4_0`, `reader_shim_8_0` | 1 each | green (flat; 1 to 5 notches) |
 | `turret_strap` | 1 | black |
 | `servo_clamp` | 4 | black (one under each servo tab) |
 | `face` | 1 | green, with `face_brand`, its black lips and NearCash name and logo, printed in it as one object |
 | `test_fit`, `test_reader` | 1 each | any |
 | `test_horn` | 1 | any (the horn pocket of `test_fit` alone) |
 | `dummy_reader`, `dummy_reader_lid` | 1 each | white (the dummy reader, base and lid, each printed as it sits) |
+| `reader_clip`, `reader_clip_long` | 1 each | white (lying flat; the long one for 5 mm of shims and more) |
 
 ### No reader yet: the dummy
 
@@ -167,17 +173,20 @@ out with a pull.
 ## Before the ATM: measure, and print the test pieces
 
 The model is parametric: everything follows the values at the top of
-`nearcash-atm.scad`. The defaults are estimates. `card_insert_depth` matters
-most: what sticks out of the reader swings round with the turret, and the
-channel, the hopper and the smile are placed around that circle with a 4 mm
-margin. A card that goes in less deep swings wider, so measure it before
-printing.
+`nearcash-atm.scad`. The ATM was laid out, and printed, for a first estimate
+of the reader (a card 60 mm in, a slot 6 mm up). What sticks out of the reader
+swings round with the turret, and the channel, the hopper, the smile and the
+front posts stand round that circle. So the reader's values no longer move
+them: only the turret adapts. `card_insert_depth` sets where the reader sits
+on the turret, so that the banknote's tip ends where the layout expects it.
+`reader_slot_bottom` sets the reader's height: it stands on four screws under
+its feet, which also make up any error (see Assembly, step 6).
 
 | Value | How to measure it | Default |
 |---|---|---|
-| `card_insert_depth` | Push a card fully into the reader and measure what sticks out. The depth is 85.6 minus that. | 60 mm |
+| `card_insert_depth` | Push a card fully into the reader and measure what sticks out. The depth is 85.6 minus that. | 52.5 mm (33.1 mm out, measured on a photo) |
 | `reader_w`, `reader_l`, `reader_h` | The reader: width, length (slot to cable end) and height. Its pocket on the turret has 0.3 mm of play (`reader_fit`). | 69, 72.2, 14.5 mm |
-| `reader_slot_bottom` | With the reader flat on the table and a card in it, the height of the card's lower face above the table. | 6 mm |
+| `reader_slot_bottom` | With the reader flat on the table and a card in it, the height of the card's lower face above the table. | 4 mm (from ACS's drawing, ±0.7 mm: the screws make up the rest) |
 | `horn_span`, `horn_arm`, `horn_arm_tip`, `horn_t`, `horn_boss_d` | The cross horn that comes with the servo (the printed parts press onto it). Its arms taper: tip to tip, an arm's width 8 mm from the centre and just before its rounded end, thickness, and the middle across the curved corners between the arms. | 36, 7.9, 4.7, 3.6, 14.8 mm |
 | `horn_gap` | With the horn on the servo: from the top of the servo's case to the underside of the horn's arms. It sets the height of the lever and of the turret. | 2.3 mm |
 | `servo_tab_top` | From the servo's bottom to the top face of its mounting tabs. | 29 mm |
@@ -188,7 +197,7 @@ Then print plates 1 and 4 and try the three test pieces:
 - **`test_reader`**: lay the reader flat on the table, put the piece against
   its slot and slide a card along its rails. The card must go into the slot
   without catching its edge and without lifting. If it doesn't, correct
-  `reader_slot_bottom`.
+  `reader_slot_bottom` (within 0.7 mm, the turret's screws do it instead).
 - **`test_horn`** (plate 4): press a servo horn into the cross pocket: snug,
   with no play, since that fit alone holds the turret on its servo. If it is
   too tight or too loose, change `horn_fit` at the top of the file.
@@ -238,12 +247,35 @@ first two (or change them in the file).
 5. **Hopper.** Press the hopper onto the floor, its outer walls down the
    floor's sides just behind the front pads, until its four fingers click
    under the rails. Slide the gate down the slots in the hopper's front
-   pillars, number towards the hopper, until its two arms click under the
-   steps on the pillars. To change the gate, spread its arms and pull the tab.
-6. **Turret.** Lay the ACR39U in the turret with its slot towards the hopper and
-   its cable towards the front, snap the strap over it, and press the turret
+   pillars, number towards the hopper and tongue towards the turret, until
+   its two arms click under the steps on the pillars. The tongue keeps the
+   card flat to the end of the stroke, where the reader resists most: a card
+   that could lift there would ride over the pusher's finger. To change the
+   gate, spread its arms and pull the tab.
+6. **Turret.** Screw the four screws into the turret, slot up, until each
+   one's bottom is flush with the turret's underside, then turn each back half
+   a turn (anticlockwise): that is the height for a 4 mm slot. Lay the ACR39U
+   in the turret with its slot towards the hopper, its cable towards the front
+   and its four feet on the screws. Slide a card from the channel (flat on its floor, under the gate's tongue) into
+   the slot: it must go in without catching. If it catches under the slot, the
+   reader is too high; above it, too low. Lift the reader off and turn all four
+   screws the same way (anticlockwise raises it, about 0.4 mm a quarter turn;
+   never past flush underneath, the servo is there). Then snap the strap over
+   it (its arch presses the reader down at any height), and press the turret
    onto the front servo's horn (still at 0°) with the slot towards the hopper.
-   Leave the cable a slack loop so the turret can turn half a turn.
+   Press the cable clip's stem (white) into the socket behind the reader's
+   cable end and push the cable's boot down into its fork until it snaps
+   under the lips: the cable's pull then goes to the turret, not the reader.
+   The boot reaches past the face into the smile: leave the cable a slack
+   loop so the turret can turn half a turn. If the carriage leaves the card
+   short of the reader's end (pushed by hand it goes further), push the
+   reader towards its slot and drop a shim in behind it, against the
+   cable-end stops. The shims are 0.5, 1, 2, 4 and 8 mm (1 to 5 notches) and
+   stack, up to 9 mm: start with 0.5 and go up half a millimetre at a time.
+   Take the first that lets the card go all the way in: a thicker one would
+   only make the banknote stick out further, towards the front posts. From
+   5 mm of shims the boot has moved off the clip: use the long clip
+   (`reader_clip_long`) in the same socket.
 7. **Face.** Push the face's two pegs into the tall posts.
 8. **Phone.** Press the shelf onto the tall posts' tops (it passes over the
    turret), then slide the back's rails into the shelf's sockets. Put the
@@ -288,8 +320,17 @@ To find an end angle, `pnpm atm:servos 12 0` holds the turret and moves it as
 you type (`+1`, `-1`, or an angle): the horn's splines leave the turret a few
 degrees off at 0°. `pnpm atm:cycle` (on the Pi, `hardware/atm/cycle.py`) runs
 this whole sequence on the servos to test the mechanics, with the reader in the
-turret and pauses standing in for the reading and the issuing: `--dry-run` prints the steps, `--cycles N` repeats it, and `--stroke`,
-`--turret-in`, `--turret-out` and `--pusher-reversed` take the calibration. Both
+turret and a pause standing in for the issuing. With the reader connected
+(checked at startup), after each load it reads the card
+(`apps/atm/src/reader-check-cli.ts`): ✔ the card answers through the contacts,
+so it went all the way in; ✘ it stopped short (the reader's light can be on
+anyway: its switch closes before the contacts touch the chip). The ATM server
+must not hold the reader, the cards need a chip, and `--no-reader` skips the
+check. `--dry-run` prints the steps, `--cycles N` repeats it, and `--stroke`,
+`--turret-in`, `--turret-out` and `--pusher-reversed` take the calibration, as
+does `--load-speed` (degrees per second while loading, 30 by default): if the
+card stops at the reader's slot and the pusher's finger slips under it, go
+slower (`--load-speed 15`). Both
 scripts move the servos calmly from where they were left (noted on the Pi in
 `~/.nearcash-atm-servos.json`, since a servo can't tell where it is), always the
 pusher home before the turret turns; `cycle` starts and ends at rest and goes

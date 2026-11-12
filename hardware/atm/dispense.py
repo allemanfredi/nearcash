@@ -33,8 +33,8 @@ import signal
 import sys
 import time
 
-from cycle import (PUSHER_BACK, PUSHER_LOAD, SEATED_S, Log, add_calibration_options, check_calibration, countdown,
-                   go_to_rest, open_servos, release_servos, seconds, turn_turret)
+from cycle import (PUSHER_BACK, SEATED_S, Log, add_calibration_options, check_calibration, countdown,
+                   go_to_rest, load_step, open_servos, release_servos, seconds, turn_turret)
 
 # The line that tells the ATM server the card is out (apps/atm/src/server/features/hardware/servo-dispenser.ts).
 OUT_LINE = 'OUT'
@@ -75,7 +75,7 @@ def stop_on_sigterm(signum, frame):
 def hand_out(turret, pusher, args, log):
     """One card from the hopper to the customer's hand, from rest to rest."""
     log(f'load: pusher 0° → {args.stroke:g}°, slowly')
-    pusher.move(args.stroke, PUSHER_LOAD)
+    pusher.move(args.stroke, load_step(args))
     countdown(log, SEATED_S, 'the card settles in the reader')
 
     log(f'back: pusher {args.stroke:g}° → 0°')

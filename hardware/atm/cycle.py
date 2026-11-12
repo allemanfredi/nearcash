@@ -1,7 +1,9 @@
 """Runs the ATM's whole cycle on the real servos, to test the mechanics: a card
 goes from the hopper into the reader, the ATM "issues" the banknote, the turret
 turns and the banknote comes out of the smile, then the ATM gets ready for the
-next one. Neither the reader nor the issuing is used: sleeps stand in for them.
+next one. The issuing is not done: a sleep stands in for it. The reader is
+checked, when one is connected: after each load, whether the card answers
+through its contacts, so whether the stroke took it all the way in.
 It runs on the Raspberry Pi, with the servos wired as for servo.py:
 
     pnpm atm:cycle                     # one cycle
@@ -9,10 +11,13 @@ It runs on the Raspberry Pi, with the servos wired as for servo.py:
     pnpm atm:cycle --pusher-reversed   # a pusher whose rest is 180° (see "The pusher's direction")
     pnpm atm:cycle --stroke 160        # the pusher stops 160° from home (calibration)
     pnpm atm:cycle --dry-run           # prints the steps without moving anything, on any computer
+    pnpm atm:cycle --no-reader         # doesn't check the card, even with a reader connected
 
 The steps are those of "Motion and calibration" in the assembly PDF:
   1. ready     the pusher at home, the turret at its loading angle (the reader's slot facing the hopper);
   2. load      the pusher slowly to the end of its stroke: the bottom card goes into the reader;
+               with a reader connected (checked before the first cycle), the card is
+               read: it answers only once its contacts touch the chip, all the way in;
   3. back      the pusher home again;
   4. issue     a sleep: the ATM would write the banknote on the card and check it;
   5. hand out  the turret to 180°: the banknote sticks out of the smile; a sleep, to pull it out;
@@ -26,6 +31,9 @@ the circle the banknote sweeps. A second Ctrl+C, while going back, lets the
 servos go limp at once, where they are, so a jammed card can be freed by hand.
 """
 import argparse
+import os
+import shutil
+import subprocess
 import sys
 import time
 
@@ -40,9 +48,22 @@ TURRET_OUT = 180.0  # the banknote comes straight out of the smile
 STROKE = 180.0      # the pusher's full stroke, in degrees from home: the card fully in the reader
 
 # How fast each move goes: (degrees per step, seconds per step).
-PUSHER_LOAD = (2.0, 0.025)  # slowly, 180° in about 2.3 s: the card must slide under the gate, not jam
+# Loading goes at --load-speed degrees per second, in 1° steps. Slowly: the
+# card reaches the reader's slot at about 85° of the lever, where the carriage
+# runs fastest. At 80°/s (180° in 2.3 s) a real ACR39U stopped the card at its
+# slot, the card bowed and slipped over the pusher's finger; pushed slowly by
+# hand, it went all the way in.
+LOAD_SPEED = 30.0           # degrees per second: 180° in 6 s
 PUSHER_BACK = (4.0, 0.025)  # 180° in about 1.1 s: nothing to carry on the way back
 TURRET_TURN = (3.0, 0.030)  # 180° in about 1.8 s: the card stays in the reader, the reader's cable follows
+
+# The card check: apps/atm/src/reader-check-cli.ts, through the ATM's own PC/SC
+# code, run with Node.js. Exit 0: the card answered (all the way in); 2: in the
+# reader but not answering (it stopped short); 3: no card; 1 and 4: no reader,
+# or the card held by another program.
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+READER_CHECK = os.path.join(REPO, 'apps', 'atm', 'src', 'reader-check-cli.ts')
+CARD_WAIT_MS = 1500   # after the load, how long the card has to show up in the reader
 
 # The sleeps standing in for what this test doesn't use.
 SEATED_S = 0.5    # at full stroke: the card settles in the reader (the reader would report it present)
@@ -84,14 +105,79 @@ def go_to_rest(turret, pusher, args, log):
         turn_turret(turret, pusher, args.turret_in)
 
 
+def node_binary():
+    """A Node.js 22.18 or later, which runs the TypeScript directly, or None. pnpm atm:demo installs
+    one in /usr/local; a shell with nvm may put an older one first on the PATH."""
+    check = 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)'
+    for candidate in (shutil.which('node'), '/usr/local/bin/node'):
+        if candidate and os.path.exists(candidate):
+            if subprocess.run([candidate, '-e', check], capture_output=True).returncode == 0:
+                return candidate
+    return None
+
+
+def reader_check(node, *options):
+    """Runs reader-check-cli.ts: (its exit code, its line)."""
+    try:
+        result = subprocess.run([node, READER_CHECK, *options], capture_output=True, text=True, timeout=20, cwd=REPO)
+    except subprocess.TimeoutExpired:
+        return 1, 'the reader check did not answer'
+    lines = (result.stdout.strip() or result.stderr.strip()).splitlines()
+    return result.returncode, lines[-1] if lines else f'exit {result.returncode}'
+
+
+def find_reader(args):
+    """Before the first cycle: the Node.js that checks the card, when a reader is connected; else None."""
+    if args.dry_run or args.no_reader:
+        return None
+    node = node_binary()
+    if node is None:
+        print('no Node.js 22.18 or later: the card will not be checked (pnpm atm:demo installs it)')
+        return None
+    if not os.path.exists(READER_CHECK):
+        print(f'{READER_CHECK} is missing: the card will not be checked')
+        return None
+    code, message = reader_check(node, '--reader')
+    if code != 0:
+        print(f'no reader ({message}): the card will not be checked')
+        return None
+    print(f'reader: {message}. After each load the card is read, to check it went all the way in.')
+    return node
+
+
+def check_card(args, log):
+    """After a load, with a reader: is the card read? Noted in args.card_results for the summary."""
+    if args.reader_node is None:
+        return
+    code, message = reader_check(args.reader_node, '--card', '--wait', str(CARD_WAIT_MS))
+    if code in (1, 4):
+        # No reader any more, or the card held by another program: nothing said about the stroke.
+        log('? ' + message)
+        return
+    log(('✔ ' if code == 0 else '✘ ') + message)
+    args.card_results.append(code == 0)
+
+
+def card_summary(args):
+    """After the last cycle: how many loads put the card where the reader reads it."""
+    results = args.card_results
+    if not results:
+        return
+    print(f'card read after {sum(results)} of {len(results)} loads')
+    if not all(results):
+        print('  a card not read stopped short of the reader\'s contacts: slower (--load-speed), the stroke (--stroke),\n'
+              '  the gate with its tongue, or a shim behind the reader (see the assembly PDF)')
+
+
 def cycle(turret, pusher, args):
     """One banknote, from the hopper to the customer's hand; it starts and ends at rest."""
     log = Log()
     log(f'ready: pusher at home, turret at {args.turret_in:g}°')
 
     log(f'load: pusher 0° → {args.stroke:g}°, slowly')
-    pusher.move(args.stroke, PUSHER_LOAD)
+    pusher.move(args.stroke, load_step(args))
     countdown(log, SEATED_S, 'the card settles in the reader')
+    check_card(args, log)
 
     log(f'back: pusher {args.stroke:g}° → 0°')
     pusher.move(0, PUSHER_BACK)
@@ -123,9 +209,24 @@ def seconds(text):
     return value
 
 
+def speed(text):
+    """A speed from the command line, degrees per second: 1 to 180."""
+    value = float(text)
+    if not 1 <= value <= 180:
+        raise argparse.ArgumentTypeError(f'{value:g}°/s is outside 1-180')
+    return value
+
+
+def load_step(args):
+    """The pusher's loading move as (degrees per step, seconds per step): 1° steps at --load-speed."""
+    return (1.0, 1.0 / args.load_speed)
+
+
 def add_calibration_options(parser):
     """The calibration and --dry-run, shared with dispense.py (which the ATM server runs for each card)."""
     parser.add_argument('--stroke', type=angle, default=STROKE, help=f'the pusher\'s full stroke, degrees from home (default {STROKE:g})')
+    parser.add_argument('--load-speed', type=speed, default=LOAD_SPEED,
+                        help=f'how fast the pusher loads a card, degrees per second (default {LOAD_SPEED:g}): slower if the card stops at the reader\'s slot')
     parser.add_argument('--pusher-reversed', action='store_true', help='the pusher\'s rest is 180° (its shaft turns clockwise from 0° to 90°)')
     parser.add_argument('--turret-in', type=angle, default=TURRET_IN, help=f'the turret\'s loading angle (default {TURRET_IN:g})')
     parser.add_argument('--turret-out', type=angle, default=TURRET_OUT, help=f'the turret\'s hand-out angle (default {TURRET_OUT:g})')
@@ -178,6 +279,7 @@ def parse_args():
     add_calibration_options(parser)
     parser.add_argument('--issue-seconds', type=seconds, default=ISSUE_S, help=f'the sleep standing in for the issuing (default {ISSUE_S:g})')
     parser.add_argument('--take-seconds', type=seconds, default=TAKE_S, help=f'the time to pull the banknote out (default {TAKE_S:g})')
+    parser.add_argument('--no-reader', action='store_true', help='don\'t check the card, even with a reader connected')
     args = parser.parse_args()
     if args.cycles < 1:
         parser.error('--cycles must be 1 or more')
@@ -187,6 +289,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    args.reader_node = find_reader(args)
+    args.card_results = []
 
     turret = pusher = None
     try:
@@ -198,6 +302,7 @@ def main():
             cycle(turret, pusher, args)
             if n < args.cycles:
                 time.sleep(BETWEEN_S)
+        card_summary(args)
     except KeyboardInterrupt:
         if turret is None or pusher is None:
             print('\nstopped before both servos had started')

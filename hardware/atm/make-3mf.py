@@ -90,13 +90,21 @@ PLATES = [
     ('Green: the hopper, snap-on', [
         ('hopper', GREEN, 0, [(80, 80)]),
     ]),
-    ('Black: the gate, snap-on', [
-        ('gate_1_1', BLACK, 0, [(90, 120)]),
+    # The gate with its tongue (1.0 mm gap), lying on its hopper side, the tongue standing up: it keeps the card
+    # flat to the end of the stroke.
+    ('Black: the gate with its tongue, snap-on', [
+        ('gate_1_0_tongue', BLACK, 0, [(90, 120)]),
     ]),
     # The reader's holder (the turret), on a plate of its own, with its hub's middle open: the horn
     # pocket's ceiling prints as four short bridges, one across each arm (see hub_open_d).
-    ('Green: the reader\'s holder (the turret), open hub', [
+    ('Green: the reader\'s holder (the turret), open hub, its four height screws and its shims', [
         ('turret', GREEN, 0, [(90, 89)]),
+        ('reader_screw', GREEN, 0, [(40, 100), (55, 100), (40, 115), (55, 115)]),
+        ('reader_shim_0_5', GREEN, 0, [(10, 140)]),
+        ('reader_shim_1_0', GREEN, 0, [(10, 155)]),
+        ('reader_shim_2_0', GREEN, 0, [(10, 170)]),
+        ('reader_shim_4_0', GREEN, 0, [(10, 185)]),
+        ('reader_shim_8_0', GREEN, 0, [(10, 200)]),
     ]),
     # The face, printed face down, with its black ink flush in its front: the lips round the
     # smile, and the NearCash name and logo in the chin. The black is in its first three layers
@@ -110,6 +118,23 @@ PLATES = [
     ('Test, white: the dummy reader (a stand-in for the ACR39U)', [
         ('dummy_reader', WHITE, 0, [(40, 90)]),
         ('dummy_reader_lid', WHITE, 0, [(140, 90)]),
+    ]),
+    # The reader's cable clips, on a plate of their own: they hold the cable's boot behind the reader, so the
+    # cable's pull goes to the turret, not the reader. The short one up to 5 mm of shims, the long one from
+    # 5 mm. They print lying flat.
+    ('White: the reader\'s cable clips, short and long', [
+        ('reader_clip', WHITE, 0, [(120, 120)]),
+        ('reader_clip_long', WHITE, 0, [(140, 120)]),
+    ]),
+    # For an ATM already built: what changed since. The turret, with room for 9 mm of shims (4 before; its
+    # height screws and the 0.5 to 4 mm shims already printed fit it), and the 8 mm shim...
+    ('Update, green: the turret with room for 9 mm of shims, and the 8 mm shim', [
+        ('turret', GREEN, 0, [(90, 89)]),
+        ('reader_shim_8_0', GREEN, 0, [(10, 140)]),
+    ]),
+    # ...and the long cable clip, for 5 mm of shims and more.
+    ('Update, white: the long cable clip', [
+        ('reader_clip_long', WHITE, 0, [(120, 120)]),
     ]),
 ]
 
@@ -252,7 +277,7 @@ def main():
     for plate, code, message, seconds, grams in results:
         name = PLATES[int(plate)][0]
         print(f'  plate {int(plate) + 1}, {name}: {float(seconds) / 60:.0f} min, {float(grams):.0f} g ({message})')
-        if not name.startswith(('Print first', 'Test', 'Spare')):   # the test pieces and the spares aren't part of the ATM
+        if not name.startswith(('Print first', 'Test', 'Spare', 'Update')):   # the test pieces, the spares and the update aren't part of the ATM
             total_s += float(seconds)
             total_g += float(grams)
     if results:

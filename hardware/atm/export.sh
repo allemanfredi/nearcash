@@ -13,9 +13,10 @@ OPENSCAD="${OPENSCAD:-$(command -v openscad || echo /Applications/OpenSCAD.app/C
 [ -x "$OPENSCAD" ] || { echo "OpenSCAD not found: brew install --cask openscad@snapshot" >&2; exit 1; }
 
 PARTS=(
-  chassis legs_front legs_back channel_post channel_floor hopper gate_0_9 gate_1_0 gate_1_1 gate_1_2
+  chassis legs_front legs_back channel_post channel_floor hopper gate_0_9 gate_1_0 gate_1_1 gate_1_2 gate_1_0_tongue
   phone_shelf phone_back
-  carriage lever turret turret_strap servo_clamp
+  carriage lever turret reader_screw reader_shim_0_5 reader_shim_1_0 reader_shim_2_0 reader_shim_4_0 reader_shim_8_0
+  turret_strap reader_clip reader_clip_long servo_clamp
   face face_brand test_fit test_horn test_reader
   dummy_reader dummy_reader_lid
 )

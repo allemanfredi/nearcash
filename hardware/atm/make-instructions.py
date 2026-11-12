@@ -36,10 +36,10 @@ PARTS = [
     ('chassis', 1, 'black', 8), ('servo_clamp', 4, 'black', 6),
     ('legs_front', 1, 'green', 5), ('legs_back', 1, 'green', 5), ('lever', 1, 'black', 3),
     ('carriage', 1, 'green', 7), ('channel_post', 4, 'green', 10), ('channel_floor', 1, 'green', 7),
-    ('hopper', 1, 'green', 11), ('gate_1_1', 1, 'black', 12), ('turret', 1, 'green', 13),
+    ('hopper', 1, 'green', 11), ('gate_1_0_tongue', 1, 'black', 12), ('turret', 1, 'green', 13), ('reader_screw', 4, 'green', 13), ('reader_shim_0_5', 1, 'green', 13), ('reader_shim_1_0', 1, 'green', 13), ('reader_shim_2_0', 1, 'green', 13), ('reader_shim_4_0', 1, 'green', 13), ('reader_shim_8_0', 1, 'green', 13),
     ('turret_strap', 1, 'black', 3), ('face', 1, 'green and black', 14), ('phone_shelf', 1, 'black', 9),
     ('phone_back', 1, 'black', 9), ('test_fit', 1, 'black', 1), ('test_reader', 1, 'black', 1), ('test_horn', 1, 'black', 4),
-    ('dummy_reader', 1, 'white', 15), ('dummy_reader_lid', 1, 'white', 15),
+    ('dummy_reader', 1, 'white', 15), ('dummy_reader_lid', 1, 'white', 15), ('reader_clip', 1, 'white', 16), ('reader_clip_long', 1, 'white', 16),
 ]
 
 # Where each assembly step is seen from: the eye (x, y, z), then the point it
@@ -74,8 +74,8 @@ ENGLISH = dict(
     parts={
         'chassis': 'Chassis', 'servo_clamp': 'Plate under a servo tab',
         'legs_front': 'Front legs (the tall posts)', 'legs_back': 'Back legs (the short posts)', 'lever': 'Lever', 'carriage': 'Carriage',
-        'channel_post': 'Channel post', 'channel_floor': 'Channel floor', 'hopper': 'Hopper', 'gate_1_1': 'Gate (1.1 mm gap)',
-        'turret': 'Turret', 'turret_strap': 'Reader’s strap', 'face': 'Face (the smile)', 'phone_shelf': 'Phone shelf',
+        'channel_post': 'Channel post', 'channel_floor': 'Channel floor', 'hopper': 'Hopper', 'gate_1_0_tongue': 'Gate with its tongue (1.0 mm gap)',
+        'turret': 'Turret', 'reader_screw': 'Reader’s height screw', 'reader_shim_0_5': 'Reader’s shim, 0.5 mm (1 notch)', 'reader_shim_1_0': 'Reader’s shim, 1 mm (2 notches)', 'reader_shim_2_0': 'Reader’s shim, 2 mm (3 notches)', 'reader_shim_4_0': 'Reader’s shim, 4 mm (4 notches)', 'reader_shim_8_0': 'Reader’s shim, 8 mm (5 notches)', 'reader_clip': 'Reader’s cable clip', 'reader_clip_long': 'Reader’s long cable clip (5 mm of shims and more)', 'turret_strap': 'Reader’s strap', 'face': 'Face (the smile)', 'phone_shelf': 'Phone shelf',
         'phone_back': 'Phone back', 'test_fit': 'Fit test piece', 'test_reader': 'Reader test piece', 'test_horn': 'Horn pocket test piece',
         'dummy_reader': 'Dummy reader (until the ACR39U arrives)', 'dummy_reader_lid': 'Dummy reader’s lid',
     },
@@ -88,8 +88,8 @@ ENGLISH = dict(
         'At 180° the banknote sticks out of the smile: the customer pulls it out.',
     ],
     measures=[
-        ('card_insert_depth', 'Push a card fully into the reader and measure what sticks out. The depth is 85.6 minus that.', '60 mm'),
-        ('reader_slot_bottom', 'With the reader flat on the table and a card in it, the height of the card’s lower face above the table.', '6 mm'),
+        ('card_insert_depth', 'Push a card fully into the reader and measure what sticks out. The depth is 85.6 minus that. It sets where the reader sits on the turret.', '52.5 mm'),
+        ('reader_slot_bottom', 'With the reader flat on the table and a card in it, the height of the card’s lower face above the table. The turret’s four screws make up an error of up to 0.7 mm.', '4 mm'),
         ('reader_w, reader_l, reader_h', 'The reader: width, length (slot to cable end) and height. Its pocket on the turret leaves 0.3 mm of play.', '69 · 72.2 · 14.5 mm'),
         ('horn_span, horn_arm, horn_arm_tip, horn_t, horn_boss_d', 'The cross horn (its arms taper): tip to tip, arm width 8 mm out and at the tip, thickness, the middle across the corners.', '36 · 7.9 · 4.7 · 3.6 · 14.8 mm'),
         ('horn_gap', 'With the horn on the servo: from the top of the servo’s case to the underside of the horn’s arms.', '2.3 mm'),
@@ -133,16 +133,20 @@ ENGLISH = dict(
                 'could lock it in its rails, like a drawer pulled by one corner.'),
         dict(title='The hopper and the gate', items=[
             'Press the hopper onto the floor: its four pegs into their holes, its outer walls down the floor’s sides, just behind the front pads, until the four fingers click under the rails.',
-            'Slide the gate down the slots in the hopper’s front pillars, its engraved number towards the hopper (the back), until its two arms click under the steps on the pillars.',
+            'Slide the gate down the slots in the hopper’s front pillars, its engraved number towards the hopper (the back) and its tongue towards the turret, until its two arms click under the steps on the pillars. The tongue keeps the card flat to the end of the stroke, where the reader resists most.',
             'Test with 2–3 cards: move the pusher slowly to the other end and back. Exactly one card must come out.',
-        ], note='If two cards come out, use gate 1.0, then 0.9; if the card stops under the gate, use 1.2 (they are on plate 2). '
+        ], note='If the card stops under the gate, use the spare gate 1.1 or 1.2 (on plate 2, without a tongue). '
                 'To change the gate, spread its two arms and pull it out by the tab. To take the hopper off, ease its fingers out from under the rails, one side at a time.'),
         dict(title='The turret and the reader', items=[
             'Send the front servo to 0° and leave it holding: <code>pnpm atm:servos 12 0</code>.',
-            'Lay the ACR39U in the turret, its slot towards the hopper and its cable towards the front.',
-            'Snap the reader’s strap (<code>turret_strap</code>) over it: spread its legs a little, the hooks go under the turret.',
+            'Screw the four height screws (<code>reader_screw</code>) into the turret, slot up, until each one’s bottom is flush with the turret’s underside, then turn each back half a turn: the height for a 4 mm slot.',
+            'Lay the ACR39U in the turret, its slot towards the hopper, its cable towards the front, its four feet on the screws.',
+            'Slide a card from the channel, flat on its floor and under the gate’s tongue, into the slot: it must go in without catching. Catching under the slot: the reader is too high; above it: too low. Lift the reader and turn all four screws the same way (anticlockwise raises it, about 0.4 mm a quarter turn; never past flush underneath).',
+            'Snap the reader’s strap (<code>turret_strap</code>) over it: spread its legs a little, the hooks go under the turret. Its arch presses the reader down at any height.',
             'Press the turret onto the front servo’s horn, the reader’s slot towards the hopper.',
-            'Leave the USB cable a generous loop: the turret turns half a turn.',
+            'Press the cable clip’s stem (<code>reader_clip</code>, white) into the socket behind the reader’s cable end, then push the cable’s boot down into its fork until it snaps under the lips: the cable’s pull then goes to the turret, not the reader.',
+            'Leave the USB cable a generous loop: its boot reaches into the smile, and the turret turns half a turn.',
+            'If the carriage leaves the card short of the reader’s end (pushed by hand it goes further), push the reader towards its slot and drop a shim (<code>reader_shim_…</code>, 1 to 5 notches) in behind it, against the cable-end stops. Start with 0.5 mm and go up half a millimetre at a time (0.5, 1, 1 + 0.5, 2, …: they stack, up to 9 mm); keep the first that lets the card go all the way in. From 5 mm of shims the boot has moved off the clip: put the long clip (<code>reader_clip_long</code>) in the same socket instead.',
             'Test: 0° → 180° → 0° in steps of 30°, watching the cable. Nothing must touch, and the cable must follow freely.',
         ], note=None),
         dict(title='The face', items=[
@@ -208,15 +212,17 @@ four hold each servo to the chassis, one holds each horn.</p>
 
 <h2 class="break">3 · Before printing everything</h2>
 <p>The model is parametric: everything follows the values at the top of <code>nearcash-atm.scad</code>, and the defaults
-are estimates. Measure your hardware with a caliper. <code>card_insert_depth</code> matters most: what sticks out of the
-reader swings round with the turret, and the channel, the hopper and the smile stand around that circle with a 4 mm margin.</p>
+are estimates. Measure your hardware with a caliper. The ATM was laid out for a first estimate of the reader (a card 60 mm in,
+a slot 6 mm up): what sticks out of the reader swings round with the turret, and the channel, the hopper, the smile and the
+front posts stand round that circle. So the reader’s values move only the turret: <code>card_insert_depth</code> sets where
+the reader sits on it, <code>reader_slot_bottom</code> its height, on four screws that also make up any error.</p>
 <table><tr><th>Value</th><th>How to measure it</th><th>Default</th></tr>{measures}</table>
 <p>Check, too, that your servos are the size of the MG996R the model expects: a 40.7 × 19.7 mm body, 54.5 mm from tab to tab.</p>
 <p>Then print <b>plates 1 and 4</b> (about 20 minutes) and try the three test pieces:</p>
 <ul>
   <li><b><code>test_reader</code></b>: lay the reader flat on the table, put the piece against its slot and slide a card
   along its rails. The card must go into the slot without catching its edge and without lifting. If it doesn’t,
-  correct <code>reader_slot_bottom</code>.</li>
+  correct <code>reader_slot_bottom</code> (within 0.7 mm, the turret’s screws do it instead).</li>
   <li><b><code>test_horn</code></b> (plate 4): press a servo horn into the cross pocket: snug, with no play, since that fit
   alone holds the turret on its servo. If it is too tight or too loose, change <code>horn_fit</code>.</li>
   <li><b><code>test_fit</code></b>: push the peg into its hole (firm); slide the slice of carriage into the length of rail
@@ -227,7 +233,7 @@ reader swings round with the turret, and the channel, the hopper and the smile s
 hardware/atm/check-clearances.sh           # nothing touches, at any position
 python3 hardware/atm/make-3mf.py           # the Bambu Studio project
 python3 hardware/atm/make-instructions.py  # these instructions</pre>
-<p>Then open <code>nearcash-atm.3mf</code> in Bambu Studio and print <b>plates 3 and 5 to 14</b> (about 6½ hours in all):
+<p>Then open <code>nearcash-atm.3mf</code> in Bambu Studio and print <b>plates 3, 5 to 14 and 16</b> (about 7 hours in all):
 every part is already on its plate, in its colour, with the right settings. No part needs supports. The channel floor
 prints upside down, the face the cards slide on against the bed: the smooth plate is best for it (with glue stick: PETG sticks
 too hard to bare smooth PEI), the textured one works too.</p>
@@ -330,8 +336,9 @@ change the pauses. The script is <code>hardware/atm/cycle.py</code>.</p>
 <h2 class="break">7 · If something goes wrong</h2>
 <table>
   <tr><th>What happens</th><th>What to do</th></tr>
-  <tr><td>The card catches the edge of the reader’s slot</td><td>Correct <code>reader_slot_bottom</code> with <code>test_reader</code> and print the turret again.</td></tr>
-  <tr><td>Two cards come out together</td><td>Use a gate with a smaller gap (1.0, then 0.9).</td></tr>
+  <tr><td>The card catches the edge of the reader’s slot</td><td>Turn the reader’s four height screws, all the same way: anticlockwise raises it (the card catches above the slot), clockwise lowers it. Beyond their travel, correct <code>reader_slot_bottom</code> and print the turret again.</td></tr>
+  <tr><td>Two cards come out together</td><td>Check the gate is fully down (its arms clicked under the steps): with the 1.0 mm gap, two cards (1.7 mm) can’t pass.</td></tr>
+  <tr><td>The card stops short of the reader’s end</td><td>Push the reader towards its slot with a shim behind it (0.5 to 9 mm, they stack; the long cable clip from 5 mm): the thinnest that lets the card in.</td></tr>
   <tr><td>The card stops under the gate</td><td>Use gate 1.2.</td></tr>
   <tr><td>The hopper moves, or the gate lifts</td><td>Check that all four of the hopper’s fingers clicked under the rails, and both of the gate’s arms under the steps on the pillars.</td></tr>
   <tr><td>The carriage is stiff in its rails</td><td>Try <code>test_fit</code> with a larger <code>fit</code>, then print the channel floor and the carriage again.</td></tr>
@@ -356,8 +363,8 @@ ITALIAN = dict(
     parts={
         'chassis': 'Telaio', 'servo_clamp': 'Piastrina sotto un’aletta del servo',
         'legs_front': 'Gambe davanti (i pali alti)', 'legs_back': 'Gambe dietro (i pali corti)', 'lever': 'Leva', 'carriage': 'Carrello',
-        'channel_post': 'Palo del canale', 'channel_floor': 'Pavimento del canale', 'hopper': 'Tramoggia', 'gate_1_1': 'Paratia (luce 1,1 mm)',
-        'turret': 'Torretta', 'turret_strap': 'Fascetta del lettore', 'face': 'Faccia (il sorriso)', 'phone_shelf': 'Mensola del telefono',
+        'channel_post': 'Palo del canale', 'channel_floor': 'Pavimento del canale', 'hopper': 'Tramoggia', 'gate_1_0_tongue': 'Paratia con la lingua (luce 1,0 mm)',
+        'turret': 'Torretta', 'reader_screw': 'Vite d’altezza del lettore', 'reader_shim_0_5': 'Spessore del lettore, 0,5 mm (1 tacca)', 'reader_shim_1_0': 'Spessore del lettore, 1 mm (2 tacche)', 'reader_shim_2_0': 'Spessore del lettore, 2 mm (3 tacche)', 'reader_shim_4_0': 'Spessore del lettore, 4 mm (4 tacche)', 'reader_shim_8_0': 'Spessore del lettore, 8 mm (5 tacche)', 'reader_clip': 'Fermacavo del lettore', 'reader_clip_long': 'Fermacavo lungo del lettore (da 5 mm di spessori)', 'turret_strap': 'Fascetta del lettore', 'face': 'Faccia (il sorriso)', 'phone_shelf': 'Mensola del telefono',
         'phone_back': 'Schienale del telefono', 'test_fit': 'Pezzo di prova degli incastri', 'test_reader': 'Pezzo di prova del lettore', 'test_horn': 'Prova della tasca della squadretta',
         'dummy_reader': 'Lettore finto (finché non arriva l’ACR39U)', 'dummy_reader_lid': 'Coperchio del lettore finto',
     },
@@ -370,8 +377,8 @@ ITALIAN = dict(
         'A 180° la banconota sporge dal sorriso: il cliente la sfila.',
     ],
     measures=[
-        ('card_insert_depth', 'Infila una carta fino in fondo nel lettore e misura quanto sporge: la profondità è 85,6 meno quel valore.', '60 mm'),
-        ('reader_slot_bottom', 'Con il lettore appoggiato sul tavolo e una carta dentro: l’altezza della faccia inferiore della carta dal tavolo.', '6 mm'),
+        ('card_insert_depth', 'Infila una carta fino in fondo nel lettore e misura quanto sporge: la profondità è 85,6 meno quel valore. Decide dove sta il lettore sulla torretta.', '52,5 mm'),
+        ('reader_slot_bottom', 'Con il lettore appoggiato sul tavolo e una carta dentro: l’altezza della faccia inferiore della carta dal tavolo. Le quattro viti della torretta recuperano un errore fino a 0,7 mm.', '4 mm'),
         ('reader_w, reader_l, reader_h', 'Il lettore: larghezza, lunghezza (dalla fessura al cavo) e altezza. La sua sede sulla torretta lascia 0,3 mm di gioco.', '69 · 72,2 · 14,5 mm'),
         ('horn_span, horn_arm, horn_arm_tip, horn_t, horn_boss_d', 'La squadretta a croce (bracci rastremati): da punta a punta, larghezza del braccio a 8 mm dal centro e in punta, spessore, centro tra gli angoli.', '36 · 7,9 · 4,7 · 3,6 · 14,8 mm'),
         ('horn_gap', 'Con la squadretta montata: dalla cima della cassa del servo al lato inferiore dei bracci.', '2,3 mm'),
@@ -415,16 +422,20 @@ ITALIAN = dict(
                 'potrebbe bloccarlo nelle guide, come un cassetto tirato per un angolo.'),
         dict(title='La tramoggia e la paratia', items=[
             'Premi la tramoggia sul pavimento: i quattro pioli nei fori, le pareti esterne lungo i fianchi del pavimento, subito dietro i cuscinetti davanti, finché le quattro linguette scattano sotto le guide.',
-            'Fai scendere la paratia nelle scanalature dei montanti davanti della tramoggia, con il numero inciso verso la tramoggia (verso il retro), finché i due braccetti scattano sotto i gradini dei montanti.',
+            'Fai scendere la paratia nelle scanalature dei montanti davanti della tramoggia, con il numero inciso verso la tramoggia (verso il retro) e la lingua verso la torretta, finché i due braccetti scattano sotto i gradini dei montanti. La lingua tiene piatta la carta fino alla fine della corsa, dove il lettore fa più resistenza.',
             'Prova con 2–3 carte: porta il pusher lentamente all’altra estremità, e ritorno. Deve uscire una carta sola.',
-        ], note='Se escono due carte, usa la paratia 1.0, poi la 0.9; se la carta si ferma sotto la paratia, usa la 1.2 (sono sul piatto 2). '
+        ], note='Se la carta si ferma sotto la paratia, usa la paratia di ricambio 1.1 o 1.2 (sul piatto 2, senza lingua). '
                 'Per cambiare la paratia, allarga i due braccetti e sfilala tirandola per la presa in alto. Per togliere la tramoggia, sgancia le linguette da sotto le guide, un lato alla volta.'),
         dict(title='La torretta e il lettore', items=[
             'Manda il servo davanti a 0° e lascialo in tenuta: <code>pnpm atm:servos 12 0</code>.',
-            'Appoggia l’ACR39U nella torretta, con la fessura verso la tramoggia e il cavo verso il davanti.',
-            'Aggancia sopra la fascetta del lettore (<code>turret_strap</code>): allarga un poco le gambe, i ganci vanno sotto la torretta.',
+            'Avvita le quattro viti d’altezza (<code>reader_screw</code>) nella torretta, taglio in alto, finché il fondo di ognuna è a filo con il sotto della torretta, poi svita ognuna di mezzo giro: è l’altezza per una fessura a 4 mm.',
+            'Appoggia l’ACR39U nella torretta, con la fessura verso la tramoggia, il cavo verso il davanti e i quattro piedini sulle viti.',
+            'Fai scorrere una carta dal canale, piatta sul pavimento e sotto la lingua della paratia, fino nella fessura: deve entrare senza urtare. Se urta sotto la fessura il lettore è troppo alto, se urta sopra è troppo basso. Togli il lettore e gira tutte e quattro le viti allo stesso modo (in senso antiorario lo alzi, circa 0,4 mm per un quarto di giro; mai oltre il filo di sotto).',
+            'Aggancia sopra la fascetta del lettore (<code>turret_strap</code>): allarga un poco le gambe, i ganci vanno sotto la torretta. Il suo arco tiene giù il lettore a qualsiasi altezza.',
             'Premi la torretta sulla squadretta del servo davanti, con la fessura del lettore verso la tramoggia.',
-            'Lascia al cavo USB un’ansa abbondante: la torretta fa mezzo giro.',
+            'Premi il gambo del fermacavo (<code>reader_clip</code>, bianco) nella sede dietro l’estremità del cavo del lettore, poi spingi il passacavo nella sua forcella finché scatta sotto i dentini: così il cavo tira la torretta, non il lettore.',
+            'Lascia al cavo USB un’ansa abbondante: il suo passacavo arriva nel sorriso, e la torretta fa mezzo giro.',
+            'Se il carrello lascia la carta prima del fondo del lettore (a mano entra di più), spingi il lettore verso la fessura e infila dietro uno spessore (<code>reader_shim_…</code>, da 1 a 5 tacche), contro i fermi dal lato del cavo. Parti da 0,5 mm e sali di mezzo millimetro alla volta (0,5, 1, 1 + 0,5, 2, …: si sommano, fino a 9 mm); tieni il primo con cui la carta entra fino in fondo. Da 5 mm di spessori il passacavo esce dal fermacavo: metti nella stessa sede il fermacavo lungo (<code>reader_clip_long</code>).',
             'Prova: 0° → 180° → 0° a passi di 30°, guardando il cavo. Niente deve toccare, e il cavo deve seguire libero.',
         ], note=None),
         dict(title='La faccia', items=[
@@ -491,15 +502,17 @@ luci (il numero è inciso sul lato della tramoggia), sul piatto 2: stampale solo
 
 <h2 class="break">3 · Prima di stampare tutto</h2>
 <p>Il modello è parametrico: tutto segue i valori in cima a <code>nearcash-atm.scad</code>, e quelli predefiniti sono
-stime. Misura il tuo hardware con il calibro. Conta soprattutto <code>card_insert_depth</code>: la parte della carta che
-sporge dal lettore gira con la torretta, e canale, tramoggia e sorriso stanno attorno a quel cerchio con 4 mm di margine.</p>
+stime. Misura il tuo hardware con il calibro. L’ATM è stato disegnato per una prima stima del lettore (carta dentro 60 mm,
+fessura a 6 mm): la parte della carta che sporge dal lettore gira con la torretta, e canale, tramoggia, sorriso e pali
+davanti stanno attorno a quel cerchio. Per questo i valori del lettore cambiano solo la torretta: <code>card_insert_depth</code>
+decide dove sta il lettore, <code>reader_slot_bottom</code> la sua altezza, su quattro viti che recuperano anche gli errori.</p>
 <table><tr><th>Valore</th><th>Come misurarlo</th><th>Predefinito</th></tr>{measures}</table>
 <p>Controlla anche che i servo abbiano le misure degli MG996R previsti: corpo di 40,7 × 19,7 mm, 54,5 mm da un’aletta all’altra.</p>
 <p>Poi stampa i <b>piatti 1 e 4</b> (circa 20 minuti) e prova i tre pezzi di prova:</p>
 <ul>
   <li><b><code>test_reader</code></b>: appoggia il lettore sul tavolo, accosta il pezzo alla fessura e fai scorrere una
   carta sulle sue guide. Deve entrare nella fessura senza urtarne il bordo e senza sollevarsi; se no, correggi
-  <code>reader_slot_bottom</code>.</li>
+  <code>reader_slot_bottom</code> (entro 0,7 mm bastano le viti della torretta).</li>
   <li><b><code>test_horn</code></b> (piatto 4): premi la squadretta del servo nella tasca a croce: stretta, senza gioco,
   perché è solo quell’incastro a tenere la torretta sul suo servo. Se è troppo stretta o larga, cambia <code>horn_fit</code>.</li>
   <li><b><code>test_fit</code></b>: spingi il piolo nel suo foro (deciso); fai scorrere la fetta di carrello nel tratto di
@@ -511,7 +524,7 @@ sporge dal lettore gira con la torretta, e canale, tramoggia e sorriso stanno at
 hardware/atm/check-clearances.sh           # niente si tocca, in nessuna posizione
 python3 hardware/atm/make-3mf.py           # il progetto Bambu Studio
 python3 hardware/atm/make-instructions.py  # queste istruzioni</pre>
-<p>Poi apri <code>nearcash-atm.3mf</code> in Bambu Studio e stampa i <b>piatti 3 e dal 5 al 14</b> (circa 6 ore e mezza in tutto):
+<p>Poi apri <code>nearcash-atm.3mf</code> in Bambu Studio e stampa i <b>piatti 3, dal 5 al 14 e il 16</b> (circa 7 ore in tutto):
 ogni pezzo è già sul suo piatto, nel suo colore, con le impostazioni giuste. Nessun pezzo ha bisogno di supporti. Il
 pavimento del canale si stampa capovolto, con la faccia su cui scorrono le carte sul piatto: il piatto liscio è il migliore
 (con la colla stick: il PETG si attacca troppo al PEI liscio nudo), va bene anche quello ruvido.</p>
@@ -615,8 +628,9 @@ cambiano le pause. Lo script è <code>hardware/atm/cycle.py</code>.</p>
 <h2 class="break">7 · Se qualcosa non va</h2>
 <table>
   <tr><th>Cosa succede</th><th>Cosa fare</th></tr>
-  <tr><td>La carta urta il bordo della fessura del lettore</td><td>Correggi <code>reader_slot_bottom</code> con <code>test_reader</code> e ristampa la torretta.</td></tr>
-  <tr><td>Escono due carte insieme</td><td>Usa una paratia con la luce più piccola (1.0, poi 0.9).</td></tr>
+  <tr><td>La carta urta il bordo della fessura del lettore</td><td>Gira le quattro viti d’altezza del lettore, tutte allo stesso modo: in senso antiorario lo alzi (la carta urta sopra la fessura), in senso orario lo abbassi. Oltre la loro corsa, correggi <code>reader_slot_bottom</code> e ristampa la torretta.</td></tr>
+  <tr><td>Escono due carte insieme</td><td>Controlla che la paratia sia scesa fino in fondo (braccetti scattati sotto i gradini): con la luce di 1,0 mm due carte (1,7 mm) non passano.</td></tr>
+  <tr><td>La carta si ferma prima del fondo del lettore</td><td>Avvicina il lettore alla fessura con uno spessore dietro (da 0,5 a 9 mm, si sommano; da 5 mm il fermacavo lungo): il più sottile con cui la carta entra.</td></tr>
   <tr><td>La carta si ferma sotto la paratia</td><td>Usa la paratia 1.2.</td></tr>
   <tr><td>La tramoggia si muove, o la paratia si alza</td><td>Controlla che tutte e quattro le linguette della tramoggia siano scattate sotto le guide, e i due braccetti della paratia sotto i gradini dei montanti.</td></tr>
   <tr><td>Il carrello è duro nelle guide</td><td>Prova <code>test_fit</code> con un <code>fit</code> più grande, poi ristampa il pavimento del canale e il carrello.</td></tr>
