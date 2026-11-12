@@ -32,3 +32,6 @@ issuance-refunds.json*
 .idea/
 .vscode/
 hardware/atm/clash-*.stl
+
+# Java Card tools for the real-card build (pnpm test:card downloads them)
+applet/.javacard/

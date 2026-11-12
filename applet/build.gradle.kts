@@ -9,8 +9,9 @@
 //          simulator, and verify signatures with BouncyCastle. Everything
 //          else in the project talks to real cards only.
 //
-// Building the .cap file for the real J3R180 needs the Oracle Java Card SDK
-// and is not wired in yet (see README, "Real cards").
+// The .cap for real cards (NXP JCOP4 J3R180): `./gradlew cap`, the task at
+// the end. `pnpm test:card` builds it, writes it on a card, tests the card and
+// resets it.
 
 plugins {
     java
@@ -56,5 +57,58 @@ tasks.test {
         events("passed", "failed", "skipped")
         showStandardStreams = false
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
+
+// ------------------------------------------------------------------ the .cap
+// The applet for real cards (NXP JCOP4 J3R180, Java Card 3.0.5), built with
+// ant-javacard and Oracle's Java Card SDK. Both live in .javacard/
+// (git-ignored), downloaded at pinned versions by scripts/card-test.sh.
+// Which SDK depends on the JDK Gradle runs on: SDK 3.0.5u4's tools run on JDK
+// 8 to 17; on a newer JDK, SDK 3.2 (v26.0) builds the same 3.0.5 applet
+// (ant-javacard's target).
+//
+//   ./gradlew cap                                                      JDK 17 → SDK 3.0.5u4
+//   ./gradlew cap -PjavacardKit=jc320v26.0_kit -PjavacardTarget=3.0.5   newer JDK
+//
+// Output: build/cap/nearcash.cap. The AIDs are the protocol's
+// (docs/protocol.md §3): package F04E42414E4B, applet F04E42414E4B01. The
+// package version follows PROTOCOL_VERSION (2).
+val javacardTools = layout.projectDirectory.dir(".javacard")
+tasks.register("cap") {
+    group = "build"
+    description = "Builds the applet's .cap for real Java Card 3.0.5 cards (JCOP4 J3R180)."
+    val sources = layout.projectDirectory.dir("src/main/java")
+    val antJavacard = javacardTools.file("ant-javacard.jar").asFile
+    val kitName = (findProperty("javacardKit") as String?) ?: "jc305u4_kit"
+    val target = findProperty("javacardTarget") as String?
+    val kit = javacardTools.dir("sdks/$kitName").asFile
+    val cap = layout.buildDirectory.file("cap/nearcash.cap")
+    inputs.dir(sources)
+    inputs.property("kit", kitName)
+    inputs.property("target", target ?: "")
+    outputs.file(cap)
+    doLast {
+        check(antJavacard.isFile && kit.isDirectory) {
+            "ant-javacard or the Java Card SDK $kitName is missing in ${javacardTools.asFile}: scripts/card-test.sh downloads them"
+        }
+        val capFile = cap.get().asFile
+        capFile.parentFile.mkdirs()
+        val capAttributes = mutableListOf(
+            "aid" to "F04E42414E4B",
+            "package" to "xyz.nektarlabs.nearcash",
+            "version" to "2.0",
+            "output" to capFile.path,
+            "sources" to sources.asFile.path,
+        )
+        if (target != null) capAttributes += "targetsdk" to target
+        ant.withGroovyBuilder {
+            "taskdef"("name" to "javacard", "classname" to "pro.javacard.ant.JavaCard", "classpath" to antJavacard.path)
+            "javacard"("jckit" to kit.path) {
+                "cap"(*capAttributes.toTypedArray()) {
+                    "applet"("class" to "xyz.nektarlabs.nearcash.NearCashApplet", "aid" to "F04E42414E4B01")
+                }
+            }
+        }
     }
 }
