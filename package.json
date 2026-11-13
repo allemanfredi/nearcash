@@ -9,7 +9,9 @@
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "applet:test": "cd applet && ./gradlew test",
+    "local": "node scripts/local.mjs",
+    "local:sale": "node scripts/local-sale.mjs",
+    "applet:test": "node scripts/gradle.mjs test",
     "ios:generate": "cd ios && xcodegen generate",
     "issuer:admin": "pnpm --filter @nearcash/core exec node scripts/issuer-admin.ts",
     "test:mpc-live": "set -a; . ./.env.issuance; set +a; pnpm --filter @nearcash/core exec vitest run test/mpc.live.test.ts",

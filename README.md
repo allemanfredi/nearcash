@@ -183,6 +183,64 @@ touch banknotes already issued), 1Click's answers about payments, and the
 issuer contract's owner, whose power to add minters would have to be locked
 or time-locked.
 
+## Run it on a computer
+
+A whole sale runs on one computer, with no card, no keys and no money: the
+NearCash applet runs in a card emulator in place of the ATM's reader. It
+needs Node.js 22.18 or later, pnpm 10 (`corepack enable` provides it) and
+Java 17 or later.
+
+```bash
+pnpm install
+pnpm test        # the card protocol, the issuance server, the ATM server, the kiosk API
+pnpm local       # starts the card emulator, the issuance server, the ATM server and the kiosk page
+```
+
+`pnpm local` prints the address of the kiosk page, the ATM's screen
+(http://127.0.0.1:5190). Pick the banknote, a way to pay and a PIN, press
+"Simulate the payment", and follow the steps until the banknote is handed
+out.
+In another terminal, `pnpm local:sale` makes the same sale through the same
+API, without a browser. Then it checks the banknote handed out, as the
+wallet app would, and hands it over to a new holder by changing its PIN. It
+exits with code 0 when all of it passes. Ctrl-C stops everything.
+
+Every step of the sale runs for real:
+
+- the blank card creates its keys inside the applet;
+- the issuance server checks the chip's birth certificate, funds the card's
+  account and signs its certificate;
+- the ATM writes the certificate and the PIN, then checks the card as a
+  receiver would.
+
+Three things are stood in for:
+
+- **The card:** each one comes from the card emulator
+  (`applet/src/emulator`), which runs the real applet in jCardSim. Its
+  chips are born with a public development production key.
+- **Payments and the reserve:** simulated. No 1Click, no FAR, no money.
+- **Certificates:** signed by the issuance server with a public development
+  issuer key, not by the NEAR MPC network. It sells one test banknote of
+  0.01 ETH.
+
+It never reads `.env.issuance` or `.env.atm`, it uses its own ports (8890,
+8892, 8893, 5190), and it needs no network after the first run, which
+downloads Gradle and jCardSim.
+
+The other parts are tested with their own tools:
+
+| Part | Needs | Command |
+| --- | --- | --- |
+| The card's applet (`applet/`), in the jCardSim emulator | Java 17 or later | `pnpm applet:test` |
+| The issuer contract (`contracts/issuer`) | Rust (rustup installs the pinned 1.96) | `cd contracts/issuer && cargo test` |
+| The wallet app (`ios/`), in the iOS Simulator | macOS, Xcode 26, XcodeGen | `pnpm ios:generate`, then `cd ios && xcodebuild test -project NearCashWallet.xcodeproj -scheme NearCashWallet -destination 'platform=iOS Simulator,name=iPhone 17'` |
+| The website (`apps/website`) | — | `pnpm website:dev` (http://localhost:5180) |
+
+Real banknotes need the hardware: Java Cards, the NFC reader and the
+Raspberry Pi. Real payments need a 1Click partner key. Certificates signed
+by NEAR MPC need a NEAR account that the issuer contract accepts as a
+minter.
+
 ## Deploy the ATM
 
 ```bash

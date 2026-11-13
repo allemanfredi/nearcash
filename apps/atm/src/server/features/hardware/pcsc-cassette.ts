@@ -3,6 +3,12 @@ import type { Cassette } from './hardware.ports.ts';
 import type { PcscReaders } from './pcsc-readers.ts';
 
 /**
+ * What the cassette asks of a reader: the NFC reader through PC/SC
+ * (PcscReaders), or the card emulator's reader (CardEmulator, `pnpm local`).
+ */
+export type CardReaders = Pick<PcscReaders, 'choose' | 'wakeCard' | 'transportToCurrentCard'>;
+
+/**
  * The cassette with a real NFC reader in the turret, the hopper of blank
  * cards behind it.
  *
@@ -24,7 +30,7 @@ import type { PcscReaders } from './pcsc-readers.ts';
 export class PcscCassette implements Cassette {
   readonly name: string;
   readonly dummy = false;
-  private readonly readers: PcscReaders;
+  private readonly readers: CardReaders;
   /** A blank card must have a birth certificate (false only for demos: NEARCASH_SKIP_BIRTH). */
   private readonly requireBirth: boolean;
   /** The servos' load (the pusher puts the next card into the reader); undefined: an operator does it. */
@@ -33,7 +39,7 @@ export class PcscCassette implements Cassette {
   private readonly arrivalMs: number;
 
   constructor(
-    readers: PcscReaders,
+    readers: CardReaders,
     readerName: string | undefined,
     requireBirth = true,
     load?: () => Promise<void>,

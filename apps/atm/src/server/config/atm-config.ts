@@ -15,6 +15,10 @@
  *                                                       dummy: the printed dummy reader, to test the sale and the
  *                                                              mechanics without the NFC reader: nothing is issued,
  *                                                              the card comes out blank
+ *                                                       emulator: DEVELOPMENT ONLY (`pnpm local`): the card emulator
+ *                                                              (applet/src/emulator), the real applet in jCardSim,
+ *                                                              born with the public DEV production key; needs
+ *                                                              NEARCASH_DISPENSER=emulator
  *   NEARCASH_READER          part of the NFC reader's name; needed only when several
  *                            PC/SC readers are connected (a YubiKey counts as one)
  *   NEARCASH_SKIP_BIRTH      false                      true: demos with cards that were never born
@@ -26,6 +30,9 @@
  *                                                       servos: the pusher loads each card once its sale is
  *                                                               paid, the turret hands it out, through
  *                                                               hardware/atm/dispense.py
+ *                                                       emulator: the card emulator's pusher and turret (with
+ *                                                               NEARCASH_CASSETTE=emulator)
+ *   NEARCASH_CARD_EMULATOR_URL  http://127.0.0.1:8893   where the card emulator listens
  *   NEARCASH_SERVO_OPTIONS   the servos' calibration, as for `pnpm atm:cycle`, e.g. "--pusher-reversed --stroke 160"
  */
 import { existsSync } from 'node:fs';
@@ -61,12 +68,14 @@ export type AtmConfig = {
         /** A blank card must have a birth certificate (false only for demos: NEARCASH_SKIP_BIRTH). */
         requireBirth: boolean;
       }
-    | { kind: 'dummy' };
+    | { kind: 'dummy' }
+    /** DEVELOPMENT ONLY: the card emulator (the real applet in jCardSim), at `url`. */
+    | { kind: 'emulator'; url: string };
   /**
    * sim: only logged; servos: `command` is run for each card (python3,
    * dispense.py and the calibration options).
    */
-  dispenser: { kind: 'sim' } | { kind: 'servos'; command: string[] };
+  dispenser: { kind: 'sim' } | { kind: 'servos'; command: string[] } | { kind: 'emulator'; url: string };
   /** How often a sale's payment is asked to the issuance server. */
   pollMs: number;
   /** After a quote's deadline, how long to keep trying when the issuance server can't be reached. */
@@ -102,15 +111,21 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
   const skipBirth = skipBirthText === 'true' || skipBirthText === '1';
 
   const cassette = env.NEARCASH_CASSETTE ?? 'none';
-  if (cassette !== 'none' && cassette !== 'pcsc' && cassette !== 'dummy') {
+  if (cassette !== 'none' && cassette !== 'pcsc' && cassette !== 'dummy' && cassette !== 'emulator') {
     throw new ConfigurationError(
-      `NEARCASH_CASSETTE=${cassette}: must be "pcsc" (the NFC reader), "dummy" (the printed dummy reader) or "none"`,
+      `NEARCASH_CASSETTE=${cassette}: must be "pcsc" (the NFC reader), "dummy" (the printed dummy reader), "emulator" (development) or "none"`,
     );
   }
   const dispenser = env.NEARCASH_DISPENSER ?? 'sim';
-  if (dispenser !== 'sim' && dispenser !== 'servos') {
-    throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: must be "servos" (the turret and the pusher) or "sim"`);
+  if (dispenser !== 'sim' && dispenser !== 'servos' && dispenser !== 'emulator') {
+    throw new ConfigurationError(`NEARCASH_DISPENSER=${dispenser}: must be "servos" (the turret and the pusher), "emulator" (development) or "sim"`);
   }
+  // The emulator's cards go in and out through its own pusher and turret: one without the other would leave
+  // each banknote in the emulated reader (or load a real card into a reader that isn't there).
+  if ((cassette === 'emulator') !== (dispenser === 'emulator')) {
+    throw new ConfigurationError('NEARCASH_CASSETTE=emulator and NEARCASH_DISPENSER=emulator go together');
+  }
+  const emulatorUrl = env.NEARCASH_CARD_EMULATOR_URL || 'http://127.0.0.1:8893';
   // "--pusher-reversed --stroke 160" → ["--pusher-reversed", "--stroke", "160"]: dispense.py checks them.
   const servoOptions = (env.NEARCASH_SERVO_OPTIONS ?? '').split(/\s+/).filter((option) => option !== '');
 
@@ -128,8 +143,15 @@ export function atmConfigFromEnvironment(env: NodeJS.ProcessEnv): AtmConfig {
     cassette:
       cassette === 'pcsc'
         ? { kind: 'pcsc', readerName: env.NEARCASH_READER || undefined, requireBirth: !skipBirth }
-        : { kind: cassette },
-    dispenser: dispenser === 'servos' ? { kind: 'servos', command: ['python3', DISPENSE_SCRIPT, ...servoOptions] } : { kind: 'sim' },
+        : cassette === 'emulator'
+          ? { kind: 'emulator', url: emulatorUrl }
+          : { kind: cassette },
+    dispenser:
+      dispenser === 'servos'
+        ? { kind: 'servos', command: ['python3', DISPENSE_SCRIPT, ...servoOptions] }
+        : dispenser === 'emulator'
+          ? { kind: 'emulator', url: emulatorUrl }
+          : { kind: 'sim' },
     pollMs: 3_000,
     graceMs: 15 * 60_000,
     minStepMs: 3_000,

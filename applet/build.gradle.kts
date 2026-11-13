@@ -6,7 +6,9 @@
 //          compatible (byte/short arithmetic only, no java.lang beyond the
 //          Java Card subset).
 //  - test: JUnit tests that run the applet inside jCardSim, the Java Card
-//          simulator, and verify signatures with BouncyCastle. Everything
+//          simulator, and verify signatures with BouncyCastle.
+//  - emulator: DEVELOPMENT ONLY, the ATM's reader and hopper with the applet
+//          in jCardSim, for `pnpm local` (section at the end). Everything
 //          else in the project talks to real cards only.
 //
 // The .cap for real cards (NXP JCOP4 J3R180): `./gradlew cap`, the task at
@@ -111,4 +113,34 @@ tasks.register("cap") {
             }
         }
     }
+}
+
+// ------------------------------------------------------------------ the card emulator
+// DEVELOPMENT ONLY: the ATM's hopper, reader and turret with the applet
+// running in jCardSim (src/emulator), so `pnpm local` makes real banknotes on
+// a computer, with no card. A source set of its own: none of it goes on a card.
+//
+//   ./gradlew -q emulatorClasspath    compiles it and prints the classpath to run it with
+val emulator: SourceSet by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += sourceSets.main.get().output
+}
+
+dependencies {
+    "emulatorImplementation"("com.klinec:jcardsim:$jcardsimVersion")
+    // The factory's birth signature (secp256k1, RFC 6979), as in the tests.
+    "emulatorImplementation"("org.bouncycastle:bcprov-jdk18on:1.85")
+}
+
+tasks.named<JavaCompile>("compileEmulatorJava") {
+    options.release.set(17)
+    options.encoding = "UTF-8"
+}
+
+tasks.register("emulatorClasspath") {
+    group = "application"
+    description = "Compiles the card emulator and prints the classpath to run it with (pnpm local)."
+    val classpath = emulator.runtimeClasspath
+    dependsOn(classpath)
+    doLast { println(classpath.asPath) }
 }

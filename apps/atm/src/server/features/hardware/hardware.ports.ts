@@ -10,7 +10,9 @@
  * printed dummy reader (DummyReader, NEARCASH_CASSETTE=dummy: no chip, the
  * card comes out blank), or none at all (NoCardReader: the ATM is out of
  * service). The dispenser is the two servos (ServoDispenser,
- * NEARCASH_DISPENSER=servos), or only logs (SimulatedDispenser).
+ * NEARCASH_DISPENSER=servos), or only logs (SimulatedDispenser). For
+ * development (`pnpm local`), both can be the card emulator, the real applet
+ * in jCardSim (EmulatedCassette, EmulatedDispenser: card-emulator.ts).
  */
 import type { NearCashCard } from '@nearcash/core';
 
