@@ -44,6 +44,13 @@ the bank: checking it, handing it over and redeeming it involve only the
 card, a phone and FAR. Handing one over is as private as paying in cash: two
 people, offline, nothing recorded on a server or on-chain.
 
+## Demo
+
+The ATM sells a 1 USDC banknote, then the wallet checks it and takes it
+over:
+
+[![NearCash demo video: buying a banknote at the ATM and checking it with the wallet](https://img.youtube.com/vi/YWjFGs6ASPQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=YWjFGs6ASPQ)
+
 ## The system
 
 ![How a banknote is made, then redeemed, step by step](docs/images/sale-flow.svg)
